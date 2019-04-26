@@ -21,7 +21,6 @@ exports.createNotification = functions.firestore.document('posts/{postId}').onCr
             const ref = await db.collection('notifications').add(data)
             console.log(`notification added | ${ref.id}`)
 
-            // const snapshot = await db.collection('users').where(`favorites.${post.user.id}`, '==', true).get()
             const snapshot = await db.doc(`users/${post.user.id}`).get()
             const userData = snapshot.data()
             if (userData) {
@@ -31,6 +30,7 @@ exports.createNotification = functions.firestore.document('posts/{postId}').onCr
                 const promises: Promise<FirebaseFirestore.WriteResult>[] = []
                 for (const user in favoriteFor) {
                     const users: FirebaseFirestore.DocumentData = new Map().set('users', new Map().set(user, true))
+                    users[user] = ''
                     const promise = db.doc(`notifications/${ref.id}`).set(users, {merge: true})
                     promises.push(promise)
                 }
