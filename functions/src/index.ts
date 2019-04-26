@@ -16,7 +16,6 @@ exports.createNotification = functions.firestore.document('posts/{postId}').onCr
             content_id: context.params.postId,
             post: true
         }
-        console.log('CREATE NOTICATION (object to store) | ' + data + ' | ' + post.user.id)
         try {
             const ref = await db.collection('notifications').add(data)
             console.log('CREATE NOTICATION (notification added) | ' + ref.id)
