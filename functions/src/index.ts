@@ -9,6 +9,7 @@ exports.createNotification = functions.firestore.document('posts/{postId}').onCr
     if (post) {
         console.log('CREATE NOTICATION (initialize app) | ' + context.params.postId)
         const db = admin.firestore()
+
         const data = {
             message: post.user.name + ' tem uma nova publicação. ' + post.title + '.',
             pic: post.pic,
@@ -16,6 +17,7 @@ exports.createNotification = functions.firestore.document('posts/{postId}').onCr
             content_id: context.params.postId,
             post: true
         }
+        
         try {
             const ref = await db.collection('notifications').add(data)
             console.log('CREATE NOTICATION (notification added) | ' + ref.id)
