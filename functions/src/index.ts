@@ -4,10 +4,10 @@ import * as admin from 'firebase-admin'
 admin.initializeApp()
 
 exports.createNotification = functions.firestore.document('posts/{postId}').onCreate(async (snap, context) => {
-    console.log('CREATE NOTICATION (new post detected) | ' + context.params.postId)
+    console.log('new post detected | ' + context.params.postId)
     const post = snap.data()
     if (post) {
-        console.log('CREATE NOTICATION (initialize app) | ' + context.params.postId)
+        console.log('initialize app | ' + context.params.postId)
         const db = admin.firestore()
 
         const data = {
@@ -20,10 +20,10 @@ exports.createNotification = functions.firestore.document('posts/{postId}').onCr
         
         try {
             const ref = await db.collection('notifications').add(data)
-            console.log('CREATE NOTICATION (notification added) | ' + ref.id)
+            console.log('notification added | ' + ref.id)
 
             const snapshot = await db.collection('users').where('favorites.' + post.user.id, '==', true).get()
-            console.log('CREATE NOTICATION (users detected) | ' + post.user.id)
+            console.log('users detected | ' + post.user.id)
 
             const promises: Promise<FirebaseFirestore.WriteResult>[] = []
             snapshot.forEach(doc => {
@@ -33,9 +33,9 @@ exports.createNotification = functions.firestore.document('posts/{postId}').onCr
                 promises.push(promise)
             });
             await Promise.all(promises)
-            console.log('CREATE NOTICATION (notification updated) | ')
+            console.log('notification updated with users | ' + promises.length)
         } catch (error) {
-            console.error('CREATE NOTICATION (failed to write notification) | ' + context.params.postId, error)
+            console.error('failed to write notification | ' + context.params.postId, error)
         }
     }
 })
