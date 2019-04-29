@@ -11,7 +11,7 @@ exports.onPostCreate = functions.firestore.document('posts/{postId}').onCreate(a
         const db = admin.firestore()
 
         const data = {
-            message: `${post.user.name} tem uma nova publicação. ${post.title}.`,
+            message: `${post.user.name} tem uma nova publicação.\n${post.title}.`,
             pic: post.pic,
             date: context.timestamp,
             content_id: context.params.postId,
@@ -45,6 +45,49 @@ exports.onPostCreate = functions.firestore.document('posts/{postId}').onCreate(a
         } catch (err) {
             console.error(`failed to write notification ${context.params.postId}`, err)
         }
+
+        // update user's posts_count
+        try {
+            console.log(`update user's posts_count`);
+
+            const snapshot = await db.collection('posts').where('user.id', '==', post.user.id).get()
+            console.log('posts detected');
+
+            let count = 0
+            snapshot.forEach(_ => {
+                count++
+            })
+            await db.doc(`users/${post.user.id}`).set({posts_count: count}, {merge: true})
+            console.log(`user's posts count updated | ${count}`);
+        } catch (err) {
+            console.log(`failed to update posts count ${context.params.postId}`, err);
+        }
+    }
+})
+
+exports.onPostDeleted = functions.firestore.document('posts/{postId}').onDelete(async (snap, context) => {
+    console.log('post delete detected | ' + context.params.postId)
+
+    const post = snap.data()
+    if (post) {
+        const db = admin.firestore()
+        
+        // update user's posts_count
+        try {
+            console.log(`update user's posts_count`);
+
+            const snapshot = await db.collection('posts').where('user.id', '==', post.user.id).get()
+            console.log(`user's posts detected`);
+
+            let count = 0
+            snapshot.forEach(_ => {
+                count++
+            })
+            await db.doc(`users/${post.user.id}`).set({posts_count: count}, {merge: true})
+            console.log(`posts count updated | ${count}`);
+        } catch (err) {
+            console.log(`failed to update posts count ${context.params.postId}`, err);
+        }
     }
 })
 
@@ -76,10 +119,10 @@ exports.onUserUpdate = functions.firestore.document('users/{userId}').onUpdate(a
             let message = ''
 
             if (before.bio === after.bio) {
-                message = `${before.name} actualizou o seu endereço. De ${before.address} para ${after.address}`
+                message = `${before.name} actualizou o seu endereço.\n Passou de ${before.address} para ${after.address}`
                 console.log('address update')
             } else if (before.address === after.address) {
-                message = `${before.name} actualizou sua bio para "${after.bio}"`
+                message = `${before.name} actualizou sua bio.\n\n"${after.bio}"`
                 console.log('bio update')
             } else {
                 message = `${before.name} actualizou o seu perfil`
