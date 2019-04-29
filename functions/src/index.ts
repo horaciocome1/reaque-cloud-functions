@@ -10,6 +10,7 @@ exports.onPostCreate = functions.firestore.document('posts/{postId}').onCreate(a
     if (post) {
         const db = admin.firestore()
         
+        // ---------------------------------------------------------------------------------------------
         // build notification
         try {
             const data = {
@@ -47,6 +48,7 @@ exports.onPostCreate = functions.firestore.document('posts/{postId}').onCreate(a
             console.error(`failed to write notification ${context.params.postId}`, err)
         }
 
+        // ---------------------------------------------------------------------------------------------
         // update user's posts_count
         try {
             console.log(`update user's posts_count`);
@@ -63,6 +65,24 @@ exports.onPostCreate = functions.firestore.document('posts/{postId}').onCreate(a
         } catch (err) {
             console.log(`failed to update posts count ${context.params.postId}`, err);
         }
+
+        // ---------------------------------------------------------------------------------------------
+        // update topics's posts_count
+        try {
+            console.log(`update topic's posts_count`);
+
+            const snapshot = await db.collection('posts').where('user.id', '==', post.topic.id).get()
+            console.log(`topic's posts detected`);
+
+            let count = 0
+            snapshot.forEach(_ => {
+                count++
+            })
+            await db.doc(`topics/${post.topic.id}`).set({posts_count: count}, {merge: true})
+            console.log(`topic's posts count updated | ${count}`);
+        } catch (err) {
+            console.log(`failed to update user's posts count ${context.params.postId}`, err);
+        }
     }
 })
 
@@ -73,6 +93,7 @@ exports.onPostDeleted = functions.firestore.document('posts/{postId}').onDelete(
     if (post) {
         const db = admin.firestore()
 
+        // ---------------------------------------------------------------------------------------------
         // update user's posts_count
         try {
             console.log(`update user's posts_count`);
@@ -85,7 +106,25 @@ exports.onPostDeleted = functions.firestore.document('posts/{postId}').onDelete(
                 count++
             })
             await db.doc(`users/${post.user.id}`).set({posts_count: count}, {merge: true})
-            console.log(`posts count updated | ${count}`);
+            console.log(`user's posts count updated | ${count}`);
+        } catch (err) {
+            console.log(`failed to update user's posts count ${context.params.postId}`, err);
+        }
+
+        // ---------------------------------------------------------------------------------------------
+        // update topics's posts_count
+        try {
+            console.log(`update topic's posts_count`);
+
+            const snapshot = await db.collection('posts').where('user.id', '==', post.topic.id).get()
+            console.log(`topic's posts detected`);
+
+            let count = 0
+            snapshot.forEach(_ => {
+                count++
+            })
+            await db.doc(`topics/${post.topic.id}`).set({posts_count: count}, {merge: true})
+            console.log(`topic's posts count updated | ${count}`);
         } catch (err) {
             console.log(`failed to update posts count ${context.params.postId}`, err);
         }
@@ -104,6 +143,8 @@ exports.onUserUpdate = functions.firestore.document('users/{userId}').onUpdate(a
         if (before.favorite_for !== after.favorite_for) {
             console.log('somebody started or stopped following')
 
+
+            // ---------------------------------------------------------------------------------------------
             // update followers count
             try {
                 let count = 0
@@ -118,10 +159,12 @@ exports.onUserUpdate = functions.firestore.document('users/{userId}').onUpdate(a
                 console.log('followers update failed')
             }
         } else if (before.bio !== after.bio || before.address !== after.address) {
+
+            // ---------------------------------------------------------------------------------------------
             // build notification
             try {
                 let message = ''
-                
+
                 if (before.bio === after.bio) {
                     message = `${before.name} actualizou o seu endereço.\n Passou de ${before.address} para ${after.address}`
                     console.log('address update')
