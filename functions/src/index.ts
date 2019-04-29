@@ -9,16 +9,17 @@ exports.onPostCreate = functions.firestore.document('posts/{postId}').onCreate(a
     const post = snap.data()
     if (post) {
         const db = admin.firestore()
-
-        const data = {
-            message: `${post.user.name} tem uma nova publicação.\n${post.title}.`,
-            pic: post.pic,
-            date: context.timestamp,
-            content_id: context.params.postId,
-            post: true
-        }
         
+        // build notification
         try {
+            const data = {
+                message: `${post.user.name} tem uma nova publicação.\n${post.title}.`,
+                pic: post.pic,
+                date: context.timestamp,
+                content_id: context.params.postId,
+                post: true
+            }
+
             const ref = await db.collection('notifications').add(data)
             console.log(`notification added | ${ref.id}`)
 
@@ -71,7 +72,7 @@ exports.onPostDeleted = functions.firestore.document('posts/{postId}').onDelete(
     const post = snap.data()
     if (post) {
         const db = admin.firestore()
-        
+
         // update user's posts_count
         try {
             console.log(`update user's posts_count`);
@@ -103,6 +104,7 @@ exports.onUserUpdate = functions.firestore.document('users/{userId}').onUpdate(a
         if (before.favorite_for !== after.favorite_for) {
             console.log('somebody started or stopped following')
 
+            // update followers count
             try {
                 let count = 0
                 for (const user in after.favorite_for) {
@@ -116,27 +118,28 @@ exports.onUserUpdate = functions.firestore.document('users/{userId}').onUpdate(a
                 console.log('followers update failed')
             }
         } else if (before.bio !== after.bio || before.address !== after.address) {
-            let message = ''
-
-            if (before.bio === after.bio) {
-                message = `${before.name} actualizou o seu endereço.\n Passou de ${before.address} para ${after.address}`
-                console.log('address update')
-            } else if (before.address === after.address) {
-                message = `${before.name} actualizou sua bio.\n\n"${after.bio}"`
-                console.log('bio update')
-            } else {
-                message = `${before.name} actualizou o seu perfil`
-                console.log('both address and bio update')
-            }
-
-            const data = {
-                message: message,
-                date: context.timestamp,
-                content_id: context.params.userId,
-                user: true
-            }
-            
+            // build notification
             try {
+                let message = ''
+                
+                if (before.bio === after.bio) {
+                    message = `${before.name} actualizou o seu endereço.\n Passou de ${before.address} para ${after.address}`
+                    console.log('address update')
+                } else if (before.address === after.address) {
+                    message = `${before.name} actualizou sua bio.\n\n"${after.bio}"`
+                    console.log('bio update')
+                } else {
+                    message = `${before.name} actualizou o seu perfil`
+                    console.log('both address and bio update')
+                }
+    
+                const data = {
+                    message: message,
+                    date: context.timestamp,
+                    content_id: context.params.userId,
+                    user: true
+                }
+
                 const ref = await db.collection('notifications').add(data)
                 console.log(`notification added | ${ref.id}`)
 
