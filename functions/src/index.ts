@@ -5,6 +5,7 @@ admin.initializeApp()
 
 exports.createNotification = functions.firestore.document('posts/{postId}').onCreate(async (snap, context) => {
     console.log('new post detected | ' + context.params.postId)
+    
     const post = snap.data()
     if (post) {
         const db = admin.firestore()
@@ -29,9 +30,11 @@ exports.createNotification = functions.firestore.document('posts/{postId}').onCr
 
                 const promises: Promise<FirebaseFirestore.WriteResult>[] = []
                 for (const user in favoriteFor) {
-                    const users: FirebaseFirestore.DocumentData = new Map().set('users', new Map().set(user, true))
-                    users[user] = ''
-                    const promise = db.doc(`notifications/${ref.id}`).set(users, {merge: true})
+                    const notification: FirebaseFirestore.DocumentData = {
+                        'users': {}
+                    }
+                    notification.users[user] = true
+                    const promise = db.doc(`notifications/${ref.id}`).set(notification, {merge: true})
                     promises.push(promise)
                 }
                 console.log(`total users | ${promises.length}`)
