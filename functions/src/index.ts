@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
+import { Timestamp } from '@google-cloud/firestore';
 
 admin.initializeApp()
 
@@ -16,7 +17,7 @@ exports.onPostCreate = functions.firestore.document('posts/{postId}').onCreate(a
             const data = {
                 message: `${post.user.name} tem uma nova publicação.\n${post.title}.`,
                 pic: post.pic,
-                date: context.timestamp,
+                date: Timestamp.now(),
                 content_id: context.params.postId,
                 post: true
             }
@@ -178,7 +179,7 @@ exports.onUserUpdate = functions.firestore.document('users/{userId}').onUpdate(a
     
                 const data = {
                     message: message,
-                    date: context.timestamp,
+                    date: Timestamp.now(),
                     content_id: context.params.userId,
                     user: true
                 }
