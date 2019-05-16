@@ -25,6 +25,5 @@ export async function deleteUserData(user: admin.auth.UserRecord) {
         console.log(`successfully deleted users data ${user.email} | ${user.uid}`)
     } catch (err) {
         console.log(`failed to delete user data for ${user.email}`, err)
-        
     }
 }

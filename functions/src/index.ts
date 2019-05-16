@@ -13,10 +13,11 @@ exports.onPostCreated = functions.firestore.document('posts/{postId}').onCreate(
     console.log(`new post detected | ${context.params.postId}`)
     const post = snap.data()
     if (post) {
-        const promises = []
-        promises.push(notifications.buildFavoriteHasNewPostNotification(context, post))        
-        promises.push(counters.updateUserPostsCount(context, post))
-        promises.push(counters.updateTopicPostsCount(context, post))
+        const promises = [
+            notifications.buildFavoriteHasNewPostNotification(context, post),
+            counters.updateUserPostsCount(context, post),
+            counters.updateTopicPostsCount(context, post)
+        ]
         await Promise.all(promises)
     }
 })
@@ -25,10 +26,11 @@ exports.onPostDeleted = functions.firestore.document('posts/{postId}').onDelete(
     console.log(`post delete detected | ${context.params.postId}`)
     const post = snap.data()
     if (post) {
-        const promises = []
-        promises.push(counters.updateUserPostsCount(context, post))
-        promises.push(counters.updateTopicPostsCount(context, post))
-        promises.push(notifications.wipeFavoriteHasNewPostNotifications(context))
+        const promises = [
+            notifications.wipeFavoriteHasNewPostNotifications(context),
+            counters.updateUserPostsCount(context, post),
+            counters.updateTopicPostsCount(context, post)
+        ]
         await Promise.all(promises)
     }
 })

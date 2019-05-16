@@ -69,7 +69,6 @@ export async function buildFavoriteUpdatedProfileNotification(
         }
         await db.collection('notifications').add(notification)
         console.log(`notification updated with users | ${count}`)
-
     } catch (err) {
         console.error(`failed to write notification for new post:  ${context.params.postId}`, err)
     }
