@@ -1,10 +1,10 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
-import * as notifications from './notifications'
-import * as counters from './counters'
-import * as utils from './utils'
-import * as authentication from './authentication'
-import * as posts from './posts'
+import * as notifications from './utils/notifications'
+import * as counters from './utils/counters'
+import * as utils from './utils/general'
+import * as authentication from './utils/authentication'
+import * as posts from './utils/posts'
 import { isNullOrUndefined } from 'util';
 
 admin.initializeApp()
