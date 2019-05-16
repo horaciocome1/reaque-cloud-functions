@@ -54,5 +54,10 @@ exports.onCreateUser = functions.auth.user().onCreate(async (user, _) => {
 
 exports.onDeleteUser = functions.auth.user().onDelete(async (user, _) => {
     console.log(`new user detected ${user.email} | ${user.uid}`)
-    if (user) await notifications.wipeFavoriteUpdatedProfileNotifications(user)
+    if (user) {
+        const promises = []
+        promises.push(notifications.wipeFavoriteUpdatedProfileNotifications(user))
+        promises.push(authentication.deleteUserData(user))
+        await Promise.all(promises)
+    }
 })
