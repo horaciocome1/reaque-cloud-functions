@@ -4,12 +4,13 @@ import * as notifications from './notifications'
 import * as counters from './counters'
 import * as utils from './utils'
 import * as authentication from './authentication'
+import * as posts from './posts'
 import { isNullOrUndefined } from 'util';
 
 admin.initializeApp()
 
 exports.onPostCreated = functions.firestore.document('posts/{postId}').onCreate(async (snap, context) => {
-    console.log('new post detected | ' + context.params.postId)
+    console.log(`new post detected | ${context.params.postId}`)
     const post = snap.data()
     if (post) {
         const promises = []
@@ -21,7 +22,7 @@ exports.onPostCreated = functions.firestore.document('posts/{postId}').onCreate(
 })
 
 exports.onPostDeleted = functions.firestore.document('posts/{postId}').onDelete(async (snap, context) => {
-    console.log('post delete detected | ' + context.params.postId)
+    console.log(`post delete detected | ${context.params.postId}`)
     const post = snap.data()
     if (post) {
         const promises = []
@@ -33,7 +34,7 @@ exports.onPostDeleted = functions.firestore.document('posts/{postId}').onDelete(
 })
 
 exports.onUserUpdated = functions.firestore.document('users/{userId}').onUpdate(async (snap, context) => {
-    console.log('user update detected | ' + context.params.userId)
+    console.log(`user update detected | ${context.params.userId}`)
     const before = snap.before.data()
     const after = snap.after.data()
     if (before && after) {
@@ -47,6 +48,18 @@ exports.onUserUpdated = functions.firestore.document('users/{userId}').onUpdate(
     }
 })
 
+exports.onUserDeleted = functions.firestore.document('users/{userId}').onDelete(async (snap, context) => {
+    console.log(`user delete detected | ${context.params.userId}`);
+    const user = snap.data()
+    if (user) {
+        const promises = [
+            notifications.wipeFavoriteUpdatedProfileNotifications(user),
+            posts.wipeDeletedUserPosts(user)
+        ]
+        await Promise.all(promises)
+    }
+})
+
 exports.onCreateUserAccount = functions.auth.user().onCreate(async (user, _) => {
     console.log(`new user detected ${user.email} | ${user.uid}`)
     if (user) await authentication.saveUserData(user)
@@ -54,10 +67,5 @@ exports.onCreateUserAccount = functions.auth.user().onCreate(async (user, _) => 
 
 exports.onDeleteUserAccount = functions.auth.user().onDelete(async (user, _) => {
     console.log(`new user detected ${user.email} | ${user.uid}`)
-    if (user) {
-        const promises = []
-        promises.push(notifications.wipeFavoriteUpdatedProfileNotifications(user))
-        promises.push(authentication.deleteUserData(user))
-        await Promise.all(promises)
-    }
+    if (user) await authentication.deleteUserData(user)
 })
