@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin'
 import * as notifications from './notifications'
 import * as counters from './counters'
 import * as utils from './utils'
+import * as authentication from './authentication'
 import { isNullOrUndefined } from 'util';
 
 admin.initializeApp()
@@ -44,4 +45,9 @@ exports.onUserUpdated = functions.firestore.document('users/{userId}').onUpdate(
         if (promises.length > 0)
             await Promise.all(promises)
     }
+})
+
+exports.onCreateUser = functions.auth.user().onCreate(async (user, _) => {
+    console.log(`new user detected ${user.email} | ${user.uid}`)
+    if (user) await authentication.saveUserData(user)
 })
