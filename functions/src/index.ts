@@ -27,7 +27,7 @@ exports.onPostDeleted = functions.firestore.document('posts/{postId}').onDelete(
         const promises = []
         promises.push(counters.updateUserPostsCount(context, post))
         promises.push(counters.updateTopicPostsCount(context, post))
-        promises.push(notifications.wipeFavoriteHasNewPostNotification(context))
+        promises.push(notifications.wipeFavoriteHasNewPostNotifications(context))
         await Promise.all(promises)
     }
 })
@@ -50,4 +50,9 @@ exports.onUserUpdated = functions.firestore.document('users/{userId}').onUpdate(
 exports.onCreateUser = functions.auth.user().onCreate(async (user, _) => {
     console.log(`new user detected ${user.email} | ${user.uid}`)
     if (user) await authentication.saveUserData(user)
+})
+
+exports.onDeleteUser = functions.auth.user().onDelete(async (user, _) => {
+    console.log(`new user detected ${user.email} | ${user.uid}`)
+    if (user) await notifications.wipeFavoriteUpdatedProfileNotifications(user)
 })
