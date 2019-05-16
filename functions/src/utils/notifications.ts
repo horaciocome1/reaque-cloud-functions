@@ -74,11 +74,11 @@ export async function buildFavoriteUpdatedProfileNotification(
     }
 }
 
-export async function wipeFavoriteUpdatedProfileNotifications(user: FirebaseFirestore.DocumentData) {
+export async function wipeFavoriteUpdatedProfileNotifications(context: functions.EventContext) {
     try {
-        console.log(`wiping notification for deleted user ${user.id}`)
+        console.log(`wiping notification for deleted user ${context.params.userId}`)
         const db = admin.firestore()
-        const snapshot = await db.collection('notifications').where('content_id', '==', user.id).get()
+        const snapshot = await db.collection('notifications').where('content_id', '==', context.params.userId).get()
         console.log('fetched notifications for this user')
         const promises: Promise<FirebaseFirestore.WriteResult>[] = []
         snapshot.forEach(doc => {
@@ -87,7 +87,7 @@ export async function wipeFavoriteUpdatedProfileNotifications(user: FirebaseFire
         await Promise.all(promises)
         console.log(`successfully wiped a total of ${promises.length} notifications`)
     } catch (err) {
-        console.log(`failed to wipe notification for deleted user: ${user.id}`, err)
+        console.log(`failed to wipe notification for deleted user: ${context.params.userId}`, err)
     }
 }
 

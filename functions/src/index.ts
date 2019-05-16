@@ -5,7 +5,6 @@ import * as counters from './utils/counters'
 import * as utils from './utils/general'
 import * as authentication from './utils/authentication'
 import * as posts from './utils/posts'
-import { isNullOrUndefined } from 'util';
 
 admin.initializeApp()
 
@@ -41,7 +40,7 @@ exports.onUserUpdated = functions.firestore.document('users/{userId}').onUpdate(
     const after = snap.after.data()
     if (before && after) {
         const promises = []
-        if (!isNullOrUndefined(before.favorite_for) && !isNullOrUndefined(after.favorite_for) && !utils.isEquivalent(before.favorite_for, after.favorite_for))
+        if (!utils.changeOcurred(before.favorite_for, after.favorite_for))
             promises.push(counters.updateUserFavoriteForCount(context, after))
         if (before.bio !== after.bio || before.address !== after.address)
             promises.push(notifications.buildFavoriteUpdatedProfileNotification(context, before, after))
@@ -55,19 +54,19 @@ exports.onUserDeleted = functions.firestore.document('users/{userId}').onDelete(
     const user = snap.data()
     if (user) {
         const promises = [
-            notifications.wipeFavoriteUpdatedProfileNotifications(user),
-            posts.wipeDeletedUserPosts(user)
+            notifications.wipeFavoriteUpdatedProfileNotifications(context),
+            posts.wipeDeletedUserPosts(context, user)
         ]
         await Promise.all(promises)
     }
 })
 
-exports.onCreateUserAccount = functions.auth.user().onCreate(async (user, _) => {
+exports.onUserAccountCreated = functions.auth.user().onCreate(async (user, _) => {
     console.log(`new user detected ${user.email} | ${user.uid}`)
     if (user) await authentication.saveUserData(user)
 })
 
-exports.onDeleteUserAccount = functions.auth.user().onDelete(async (user, _) => {
+exports.onUserAccountDeleted = functions.auth.user().onDelete(async (user, _) => {
     console.log(`new user detected ${user.email} | ${user.uid}`)
     if (user) await authentication.deleteUserData(user)
 })
