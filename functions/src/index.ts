@@ -47,12 +47,12 @@ exports.onUserUpdated = functions.firestore.document('users/{userId}').onUpdate(
     }
 })
 
-exports.onCreateUser = functions.auth.user().onCreate(async (user, _) => {
+exports.onCreateUserAccount = functions.auth.user().onCreate(async (user, _) => {
     console.log(`new user detected ${user.email} | ${user.uid}`)
     if (user) await authentication.saveUserData(user)
 })
 
-exports.onDeleteUser = functions.auth.user().onDelete(async (user, _) => {
+exports.onDeleteUserAccount = functions.auth.user().onDelete(async (user, _) => {
     console.log(`new user detected ${user.email} | ${user.uid}`)
     if (user) {
         const promises = []
