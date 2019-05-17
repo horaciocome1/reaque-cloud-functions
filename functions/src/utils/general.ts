@@ -6,7 +6,7 @@ const isEquivalent = (before: any, after: any) => {
 }
 
 export function changeOcurred(before: any, after: any): boolean {
-    if (!isNullOrUndefined(before.favorite_for) && !isNullOrUndefined(after.favorite_for) && !isEquivalent(before.favorite_for, after.favorite_for))
+    if (!isNullOrUndefined(before) && !isNullOrUndefined(after) && !isEquivalent(before, after))
         return true
     return false
 }

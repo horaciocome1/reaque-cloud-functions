@@ -40,9 +40,9 @@ exports.onUserUpdated = functions.firestore.document('users/{userId}').onUpdate(
     const after = snap.after.data()
     if (before && after) {
         const promises = []
-        if (!utils.changeOcurred(before.favorite_for, after.favorite_for))
+        if (utils.changeOcurred(before.favorite_for, after.favorite_for))
             promises.push(counters.updateUserFavoriteForCount(context, after))
-        if (before.bio !== after.bio || before.address !== after.address)
+        if (utils.changeOcurred(before.bio, after.bio) || utils.changeOcurred(before.address, after.address))
             promises.push(notifications.buildFavoriteUpdatedProfileNotification(context, before, after))
         if (promises.length > 0)
             await Promise.all(promises)
@@ -63,10 +63,12 @@ exports.onUserDeleted = functions.firestore.document('users/{userId}').onDelete(
 
 exports.onUserAccountCreated = functions.auth.user().onCreate(async (user, _) => {
     console.log(`new user detected ${user.email} | ${user.uid}`)
-    if (user) await authentication.saveUserData(user)
+    if (user)
+        await authentication.saveUserData(user)
 })
 
 exports.onUserAccountDeleted = functions.auth.user().onDelete(async (user, _) => {
     console.log(`new user detected ${user.email} | ${user.uid}`)
-    if (user) await authentication.deleteUserData(user)
+    if (user)
+        await authentication.deleteUserData(user)
 })
