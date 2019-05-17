@@ -67,10 +67,14 @@ export async function buildFavoriteUpdatedProfileNotification(
                 count++
             }
         }
-        await db.collection('notifications').add(notification)
-        console.log(`notification updated with users | ${count}`)
+        // if user is favorite for some body
+            if (count > 0) {
+                await db.collection('notifications').add(notification)
+                console.log(`successfuly added notification | ${count} users`)
+            } else
+                console.log(`empty favorite_for | ${context.params.userId}`)
     } catch (err) {
-        console.error(`failed to write notification for new post:  ${context.params.postId}`, err)
+        console.error(`failed to write notification | ${context.params.userId}`, err)
     }
 }
 
