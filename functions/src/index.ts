@@ -9,33 +9,32 @@ import * as posts from './utils/posts'
 admin.initializeApp()
 
 exports.onPostCreated = functions.firestore.document('posts/{postId}').onCreate(async (snap, context) => {
-    console.log(`new post detected | ${context.params.postId}`)
     const post = snap.data()
     if (post) {
         const promises = [
             notifications.buildFavoriteHasNewPostNotification(context, post),
             counters.updateUserPostsCount(context, post),
-            counters.updateTopicPostsCount(context, post)
+            counters.updateTopicPostsCount(context, post),
+            counters.updateTopicUsersCount(context, post)
         ]
         await Promise.all(promises)
     }
 })
 
 exports.onPostDeleted = functions.firestore.document('posts/{postId}').onDelete(async (snap, context) => {
-    console.log(`post delete detected | ${context.params.postId}`)
     const post = snap.data()
     if (post) {
         const promises = [
             notifications.wipeFavoriteHasNewPostNotifications(context),
             counters.updateUserPostsCount(context, post),
-            counters.updateTopicPostsCount(context, post)
+            counters.updateTopicPostsCount(context, post),
+            counters.updateTopicUsersCount(context, post)
         ]
         await Promise.all(promises)
     }
 })
 
 exports.onUserUpdated = functions.firestore.document('users/{userId}').onUpdate(async (snap, context) => {
-    console.log(`user update detected | ${context.params.userId}`)
     const before = snap.before.data()
     const after = snap.after.data()
     if (before && after) {
@@ -44,13 +43,11 @@ exports.onUserUpdated = functions.firestore.document('users/{userId}').onUpdate(
             promises.push(counters.updateUserFavoriteForCount(context, after))
         if (utils.changeOcurred(before.bio, after.bio) || utils.changeOcurred(before.address, after.address))
             promises.push(notifications.buildFavoriteUpdatedProfileNotification(context, before, after))
-        if (promises.length > 0)
-            await Promise.all(promises)
+        await Promise.all(promises)
     }
 })
 
 exports.onUserDeleted = functions.firestore.document('users/{userId}').onDelete(async (snap, context) => {
-    console.log(`user delete detected | ${context.params.userId}`);
     const user = snap.data()
     if (user) {
         const promises = [
@@ -61,14 +58,6 @@ exports.onUserDeleted = functions.firestore.document('users/{userId}').onDelete(
     }
 })
 
-exports.onUserAccountCreated = functions.auth.user().onCreate(async (user, _) => {
-    console.log(`new user detected ${user.email} | ${user.uid}`)
-    if (user)
-        await authentication.saveUserData(user)
-})
+exports.onUserAccountCreated = functions.auth.user().onCreate(async (user, _) => await authentication.saveUserData(user))
 
-exports.onUserAccountDeleted = functions.auth.user().onDelete(async (user, _) => {
-    console.log(`new user detected ${user.email} | ${user.uid}`)
-    if (user)
-        await authentication.deleteUserData(user)
-})
+exports.onUserAccountDeleted = functions.auth.user().onDelete(async (user, _) => await authentication.deleteUserData(user))
