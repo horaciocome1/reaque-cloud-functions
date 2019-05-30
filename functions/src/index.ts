@@ -5,6 +5,7 @@ import * as counters from './utils/counters'
 import * as utils from './utils/general'
 import * as accounts from './utils/accounts'
 import * as posts from './utils/posts'
+import * as favorites from './utils/favorites'
 
 admin.initializeApp()
 
@@ -56,6 +57,16 @@ exports.onUserDeleted = functions.firestore.document('users/{userId}').onDelete(
         ]
         await Promise.all(promises)
     }
+})
+
+exports.onAddToFavoritesRequestCreated = functions.firestore.document('add_to_favorites_requests/{requestId}').onCreate(async (snap, context) => {
+    const request = snap.data()
+    if(request) await favorites.addToFavorites(context, request)
+})
+
+exports.onRemoveFromFavoritesRequestCreated = functions.firestore.document('remove_from_favorites_requests/{requestId}').onCreate(async (snap, context) => {
+    const request = snap.data()
+    if(request) await favorites.removeFromFavorites(context, request)
 })
 
 exports.onUserAccountCreated = functions.auth.user().onCreate(async (user, _) => {
