@@ -8,7 +8,9 @@ export async function saveUserData(user: admin.auth.UserRecord) {
             name: user.displayName,
             email: user.email,
             pic: user.photoURL,
-            since: Timestamp.now()
+            since: Timestamp.now(),
+            favorite_for_count: 0,
+            posts_count: 0
         }
         const db = admin.firestore()
         await db.collection('users').doc(user.uid).set(data, {merge: true})
