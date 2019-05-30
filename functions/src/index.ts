@@ -13,6 +13,7 @@ exports.onPostCreated = functions.firestore.document('posts/{postId}').onCreate(
     const post = snap.data()
     if (post) {
         const promises = [
+            posts.addPostTopicToUser(context, post),
             notifications.buildFavoriteHasNewPostNotification(context, post),
             counters.updateUserPostsCount(context, post),
             counters.updateTopicPostsCount(context, post),
