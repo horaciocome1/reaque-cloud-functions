@@ -3,7 +3,7 @@ import * as admin from 'firebase-admin'
 import * as notifications from './utils/notifications'
 import * as counters from './utils/counters'
 import * as utils from './utils/general'
-import * as authentication from './utils/authentication'
+import * as accounts from './utils/accounts'
 import * as posts from './utils/posts'
 
 admin.initializeApp()
@@ -58,6 +58,18 @@ exports.onUserDeleted = functions.firestore.document('users/{userId}').onDelete(
     }
 })
 
-exports.onUserAccountCreated = functions.auth.user().onCreate(async (user, _) => await authentication.saveUserData(user))
+exports.onUserAccountCreated = functions.auth.user().onCreate(async (user, _) => {
+    const promises = [
+        accounts.saveUserData(user),
+        notifications.subscribeUserToWelcomeNotification(user)
+    ]
+    await Promise.all(promises)
+})
 
-exports.onUserAccountDeleted = functions.auth.user().onDelete(async (user, _) => await authentication.deleteUserData(user))
+exports.onUserAccountDeleted = functions.auth.user().onDelete(async (user, _) => {
+    const promises = [
+        accounts.deleteUserData(user),
+        notifications.unSubscribeUserFromWelcomeNotification(user)
+    ]
+    await Promise.all(promises)
+})

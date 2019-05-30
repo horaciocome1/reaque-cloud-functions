@@ -85,9 +85,7 @@ export async function wipeFavoriteUpdatedProfileNotifications(context: functions
         const snapshot = await db.collection('notifications').where('content_id', '==', context.params.userId).get()
         console.log('fetched notifications for this user')
         const promises: Promise<FirebaseFirestore.WriteResult>[] = []
-        snapshot.forEach(doc => {
-            promises.push(db.doc(`notifications/${doc.id}`).delete())
-        })
+        snapshot.forEach(doc => promises.push(db.doc(`notifications/${doc.id}`).delete()))
         await Promise.all(promises)
         console.log(`successfully wiped a total of ${promises.length} notifications`)
     } catch (err) {
@@ -102,12 +100,36 @@ export async function wipeFavoriteHasNewPostNotifications(context: functions.Eve
         const snapshot = await db.collection('notifications').where('content_id', '==', context.params.postId).get()
         console.log('fetched notifications for this post')
         const promises: Promise<FirebaseFirestore.WriteResult>[] = []
-        snapshot.forEach(doc => {
-            promises.push(db.doc(`notifications/${doc.id}`).delete())
-        })
+        snapshot.forEach(doc => promises.push(db.doc(`notifications/${doc.id}`).delete()))
         await Promise.all(promises)
         console.log(`successfully wiped a total of ${promises.length} notifications`)
     } catch (err) {
         console.log(`failed to wipe notification for deleted post: ${context.params.postId}`, err)
+    }
+}
+
+export async function subscribeUserToWelcomeNotification(user: admin.auth.UserRecord) {
+    try {
+        console.log(`subscribing user to welcome notification | ${user.uid}`)
+        const db = admin.firestore()
+        const notification: FirebaseFirestore.DocumentData = {users: {}}
+        notification.users[user.uid] = true
+        await db.doc('notifications/0').set(notification, {merge: true})
+        console.log(`successfully subscribed user to welcome notification | ${user.uid}`)
+    } catch(err) {
+        console.log(`failed to subscribe user to welcome notification | ${user.uid}`)
+    }
+}
+
+export async function unSubscribeUserFromWelcomeNotification(user: admin.auth.UserRecord) {
+    try {
+        console.log(`unsubscribing user to welcome notification | ${user.uid}`)
+        const db = admin.firestore()
+        const notification: FirebaseFirestore.DocumentData = {users: {}}
+        notification.users[user.uid] = null
+        await db.doc('notifications/0').set(notification, {merge: true})
+        console.log(`successfully unsubscribed user to welcome notification | ${user.uid}`)
+    } catch(err) {
+        console.log(`failed to unsubscribe user to welcome notification | ${user.uid}`)
     }
 }
