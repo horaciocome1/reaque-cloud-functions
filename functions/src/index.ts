@@ -78,7 +78,18 @@ exports.onRatingUpdated = functions.firestore.document('ratings/ratingId').onUpd
 )
 
 exports.onPostCreated = functions.firestore.document('posts/postId').onCreate(
-    async (_, context) => await utils.initializePost(context)
+    async (snapshot, context) => {
+        const post = snapshot.data()
+        if (post) {
+            const promises = [
+                utils.initializePost(context),
+                utils.countTopicPosts(context, post),
+                utils.countUserPosts(context, post),
+                utils.countTopicUsers(context, post)
+            ]
+            await Promise.all(promises)
+        }
+    }
 )
 
 exports.onAccountCreated = functions.auth.user().onCreate(
