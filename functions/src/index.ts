@@ -85,7 +85,8 @@ exports.onPostCreated = functions.firestore.document('posts/postId').onCreate(
                 utils.initializePost(context),
                 utils.countTopicPosts(context, post),
                 utils.countUserPosts(context, post),
-                utils.countTopicUsers(context, post)
+                utils.countTopicUsers(context, post),
+                utils.createFeedEntryForEachSubscriber(context, post)
             ]
             await Promise.all(promises)
         }
@@ -100,7 +101,7 @@ exports.onAccountCreated = functions.auth.user().onCreate(
     async (user, _) => await utils.initializeUser(user)
 )
 
-
+// ---------------------------------------------------
 
 exports.onPostCreated = functions.firestore.document('posts/{postId}').onCreate(async (snap, context) => {
     const post = snap.data()

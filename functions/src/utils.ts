@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
-import { Timestamp } from '@google-cloud/firestore';
+import { Timestamp, DocumentReference } from '@google-cloud/firestore';
 
 export async function countSubscribers(context: functions.EventContext, subscription: FirebaseFirestore.DocumentData) {
     try {
@@ -103,6 +103,36 @@ export async function initializePost(context: functions.EventContext) {
         console.log(`succeed to initialize post | postId: ${context.params.postId}`)
     } catch (err) {
         console.log(`failed to initialize post | postId: ${context.params.postId} | ${err}`)
+    }
+}
+
+export async function createFeedEntryForEachSubscriber(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
+    try {
+        const userId: string = post.user.id
+        const feed: FirebaseFirestore.DocumentData = {
+            title: post.title,
+            pic: post.pic,
+            timestamp: Timestamp.now(),
+            user: {
+                id: userId,
+                name: post.user.name
+            }
+        }
+        const db = admin.firestore()
+        const snapshot = await db.collection('subscriptions').where('subscribed.id', '==', userId).get()
+        const promises: Promise<DocumentReference>[] = []
+        snapshot.forEach(doc => {
+            const subscription = doc.data()
+            if (subscription) {
+                feed.subscriber.id = subscription.subscriber.id
+                const promise = db.collection('feeds').add(feed)
+                promises.push(promise)
+            }
+        })
+        await Promise.all(promises)
+        console.log(`succeed to create ${promises.length} feed entries | postId: ${context.params.postId}`)
+    } catch (err) {
+        console.log(`failed to create feed entries | postId: ${context.params.postId} | ${err}`)
     }
 }
 
