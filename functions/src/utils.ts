@@ -77,3 +77,18 @@ export async function updateRating(context: functions.EventContext, rating: Fire
 
 }
 
+export async function initializePost(context: functions.EventContext) {
+    try {
+        const data = {
+            bookmarks: 0,
+            readings: 0,
+            rating: 0,
+            shares: 0
+        }
+        const db = admin.firestore()
+        await db.doc(`posts/${context.params.postId}`).set(data, { merge: true })
+        console.log(`succeed to initialize post | postId: ${context.params.postId}`)
+    } catch (err) {
+        console.log(`failed to initialize post | postId: ${context.params.postId} | ${err}`)
+    }
+}

@@ -65,7 +65,9 @@ exports.onRatingUpdated = functions.firestore.document('ratings/ratingId').onUpd
     }
 )
 
-exports.onPostCreated = functions.firestore.document('')
+exports.onPostCreated = functions.firestore.document('posts/postId').onCreate(
+    async (_snapshot, context) => utils.initializePost(context)
+)
 
 exports.onPostCreated = functions.firestore.document('posts/{postId}').onCreate(async (snap, context) => {
     const post = snap.data()
