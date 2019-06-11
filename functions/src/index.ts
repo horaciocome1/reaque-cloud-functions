@@ -12,14 +12,26 @@ admin.initializeApp()
 exports.onSubscriptionCreated = functions.firestore.document('subscriptions/subscriptionId').onCreate(
     async (snapshot, context) => {
         const subscription = snapshot.data()
-        if (subscription) await utils.countSubscribers(context, subscription)
+        if (subscription) {
+            const promises = [
+                utils.countSubscribers(context, subscription),
+                utils.countSubscriptions(context, subscription)
+            ]
+            await Promise.all(promises)
+        }
     }
 )
 
 exports.onSubscriptionDeleted = functions.firestore.document('subscriptions/subscriptionId').onDelete(
     async (snapshot, context) => {
         const subscription = snapshot.data()
-        if (subscription) await utils.countSubscribers(context, subscription)
+        if (subscription) {
+            const promises = [
+                utils.countSubscribers(context, subscription),
+                utils.countSubscriptions(context, subscription)
+            ]
+            await Promise.all(promises)
+        }
     }
 )
 

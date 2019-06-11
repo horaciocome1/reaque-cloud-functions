@@ -14,6 +14,18 @@ export async function countSubscribers(context: functions.EventContext, subscrip
     }
 }
 
+export async function countSubscriptions(context: functions.EventContext, subscription: FirebaseFirestore.DocumentData) {
+    try {
+        const subscriberId: string = subscription.subscriber.id
+        const db = admin.firestore()
+        const subscriptionsSnapshot = await db.collection('subscriptions').where('subscriber.id', '==', subscriberId).get()
+        await db.doc(`users/${subscriberId}`).set({ subscriptions: subscriptionsSnapshot.size }, { merge: true })
+        console.log(`succeed to count subscriptions | subscriptionId: ${context.params.subscriptionId}`)
+    } catch (err) {
+        console.log(`failed to count subscriptions | subscriptionId: ${context.params.subscriptionId} | ${err}`)
+    }
+}
+
 export async function countBookmarks(context: functions.EventContext, bookmark: FirebaseFirestore.DocumentData) {
     try {
         const postId: string = bookmark.post.id
