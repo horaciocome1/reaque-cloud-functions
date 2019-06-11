@@ -9,7 +9,7 @@ export async function countSubscribers(context: functions.EventContext, subscrip
         await db.doc(`users/${subscribedId}`).set({ subscribers: subscriptionsSnapshot.size }, { merge: true })
         console.log(`succeed to count subscribers | subscriptionId: ${context.params.subscriptionId}`)
     } catch (err) {
-        console.log(`failed to count subscribers | subscriptionId: ${context.params.subscriptionId}`)
+        console.log(`failed to count subscribers | subscriptionId: ${context.params.subscriptionId} | ${err}`)
     }
 }
 
@@ -22,5 +22,17 @@ export async function countBookmarks(context: functions.EventContext, bookmark: 
         console.log(`succeed to count bookmarks | bookmarkId: ${context.params.bookmarkId}`)
     } catch (err) {
         console.log(`failed to count bookmarks | bookmarkId: ${context.params.bookmarkId} | ${err}`)
+    }
+}
+
+export async function countReadings(context: functions.EventContext, reading: FirebaseFirestore.DocumentData) {
+    try {
+        const postId: string = reading.post.id
+        const db = admin.firestore()
+        const readingsSnapshot = await db.collection('readings').where('post.id', '==', postId).get()
+        await db.doc(`posts/${postId}`).set({ readings: readingsSnapshot.size }, { merge: true })
+        console.log(`succeed to count readings | readingId: ${context.params.readingId}`)
+    } catch (err) {
+        console.log(`failed to count readings | readingId: ${context.params.readingId} | ${err}`)
     }
 }

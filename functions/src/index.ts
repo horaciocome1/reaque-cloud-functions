@@ -26,14 +26,21 @@ exports.onSubscriptionDeleted = functions.firestore.document('subscriptions/subs
 exports.onBookmarkCreated = functions.firestore.document('bookmarks/bookmarkId').onCreate(
     async (snapshot, context) => {
         const bookmark = snapshot.data()
-        if (bookmark) await utils.countSubscribers(context, bookmark)
+        if (bookmark) await utils.countBookmarks(context, bookmark)
     }
 )
 
 exports.onBookmarkDeleted = functions.firestore.document('bookmarks/bookmarkId').onDelete(
     async (snapshot, context) => {
         const bookmark = snapshot.data()
-        if (bookmark) await utils.countSubscribers(context, bookmark)
+        if (bookmark) await utils.countBookmarks(context, bookmark)
+    }
+)
+
+exports.onReadingCreated = functions.firestore.document('readings/readingId').onCreate(
+    async (snapshot, context) => {
+        const reading = snapshot.data()
+        if (reading) await utils.countReadings(context, reading)
     }
 )
 
