@@ -62,18 +62,6 @@ export async function countShares(context: functions.EventContext, share: Fireba
     }
 }
 
-export async function countTopicPosts(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
-    try {
-        const db = admin.firestore()
-        const topicId: string = post.topic.id
-        const snapshot = await db.collection('posts').where('topic.id', '==', topicId).get()
-        await db.doc(`topics/${topicId}`).set({ posts: snapshot.size }, { merge: true })
-        console.log(`succeed to count topic's posts | postId: ${context.params.postId}`)
-    } catch (err) {
-        console.log(`failed to count topic's posts | postId: ${context.params.postId} | ${err}`)
-    }
-}
-
 export async function updateRating(context: functions.EventContext, rating: FirebaseFirestore.DocumentData) {
     try {
         const postId: string = rating.post.id
@@ -115,6 +103,30 @@ export async function initializePost(context: functions.EventContext) {
         console.log(`succeed to initialize post | postId: ${context.params.postId}`)
     } catch (err) {
         console.log(`failed to initialize post | postId: ${context.params.postId} | ${err}`)
+    }
+}
+
+export async function countTopicPosts(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
+    try {
+        const db = admin.firestore()
+        const topicId: string = post.topic.id
+        const snapshot = await db.collection('posts').where('topic.id', '==', topicId).get()
+        await db.doc(`topics/${topicId}`).set({ posts: snapshot.size }, { merge: true })
+        console.log(`succeed to count topic's posts | postId: ${context.params.postId}`)
+    } catch (err) {
+        console.log(`failed to count topic's posts | postId: ${context.params.postId} | ${err}`)
+    }
+}
+
+export async function countUserPosts(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
+    try {
+        const db = admin.firestore()
+        const userId: string = post.user.id
+        const snapshot = await db.collection('posts').where('user.id', '==', userId).get()
+        await db.doc(`users/${userId}`).set({ posts: snapshot.size }, { merge: true })
+        console.log(`succeed to count user's posts | postId: ${context.params.postId}`)
+    } catch (err) {
+        console.log(`failed to count user's posts | postId: ${context.params.postId} | ${err}`)
     }
 }
 
