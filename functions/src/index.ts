@@ -2,12 +2,26 @@ import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import * as notifications from './utils/notifications'
 import * as counters from './utils/counters'
-import * as utils from './utils/general'
+import * as utils from './utils'
 import * as accounts from './utils/accounts'
 import * as posts from './utils/posts'
 import * as favorites from './utils/favorites'
 
 admin.initializeApp()
+
+exports.onSubscriptionCreated = functions.firestore.document('subscriptions/subscriptionId').onCreate(
+    async (snapshot, context) => {
+        const subscription = snapshot.data()
+        if (subscription) await utils.countSubscribers(context, subscription)
+    }
+)
+
+exports.onSubscriptionDeleted = functions.firestore.document('subscriptions/subscriptionId').onDelete(
+    async (snapshot, context) => {
+        const subscription = snapshot.data()
+        if (subscription) await utils.countSubscribers(context, subscription)
+    }
+)
 
 exports.onPostCreated = functions.firestore.document('posts/{postId}').onCreate(async (snap, context) => {
     const post = snap.data()
