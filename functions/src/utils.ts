@@ -160,3 +160,17 @@ export async function initializeUser(user: admin.auth.UserRecord) {
         console.log(`failed to initialize user | userId: ${user.uid} | ${err}`)
     }
 }
+
+export async function initializeTopic(context: functions.EventContext) {
+    try {
+        const data = {
+            posts: 0,
+            users: 0
+        }
+        const db = admin.firestore()
+        await db.doc(`topics/${context.params.topicId}`).set(data, { merge: true })
+        console.log(`succeed to initialize topic | topicId: ${context.params.topicId}`)
+    } catch (err) {
+        console.log(`failed to initialize topic | topicId: ${context.params.topicId} | ${err}`)
+    }
+}

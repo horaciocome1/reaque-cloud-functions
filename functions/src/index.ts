@@ -92,6 +92,10 @@ exports.onPostCreated = functions.firestore.document('posts/postId').onCreate(
     }
 )
 
+exports.onTopicCreated = functions.firestore.document('topic/topicsId').onCreate(
+    async (_, context) => utils.initializeTopic(context)
+)
+
 exports.onAccountCreated = functions.auth.user().onCreate(
     async (user, _) => await utils.initializeUser(user)
 )
