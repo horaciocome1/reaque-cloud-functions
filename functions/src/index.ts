@@ -44,6 +44,13 @@ exports.onReadingCreated = functions.firestore.document('readings/readingId').on
     }
 )
 
+exports.onShareCreated = functions.firestore.document('shares/shareId').onCreate(
+    async (snapshot, context) => {
+        const share = snapshot.data()
+        if (share) await utils.countReadings(context, share)
+    }
+)
+
 exports.onPostCreated = functions.firestore.document('posts/{postId}').onCreate(async (snap, context) => {
     const post = snap.data()
     if (post) {

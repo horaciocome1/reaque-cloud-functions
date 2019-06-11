@@ -36,3 +36,15 @@ export async function countReadings(context: functions.EventContext, reading: Fi
         console.log(`failed to count readings | readingId: ${context.params.readingId} | ${err}`)
     }
 }
+
+export async function countShares(context: functions.EventContext, share: FirebaseFirestore.DocumentData) {
+    try {
+        const postId: string = share.post.id
+        const db = admin.firestore()
+        const sharesSnapshot = await db.collection('shares').where('post.id', '==', postId).get()
+        await db.doc(`posts/${postId}`).set({ shares: sharesSnapshot.size }, { merge: true })
+        console.log(`succeed to count shares | shareId: ${context.params.shareId}`)
+    } catch (err) {
+        console.log(`failed to count shares | shareId: ${context.params.shareId} | ${err}`)
+    }
+}
