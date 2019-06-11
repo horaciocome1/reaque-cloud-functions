@@ -48,3 +48,32 @@ export async function countShares(context: functions.EventContext, share: Fireba
         console.log(`failed to count shares | shareId: ${context.params.shareId} | ${err}`)
     }
 }
+
+export async function updateRating(context: functions.EventContext, rating: FirebaseFirestore.DocumentData) {
+    try {
+        const postId: string = rating.post.id
+        const db = admin.firestore()
+        const ratesSnapshot = await db.collection('rating').where('post.id', '==', postId).get()
+        let sum = 0
+        ratesSnapshot.forEach(doc => {
+            const data = doc.data()
+            if (data) {
+                const value: number = data.value
+                sum += value
+            }
+        })
+        const postRating = sum / ratesSnapshot.size
+        const roundedRating = round(postRating, 1) // 1 decimal, uma casa decimal
+        await db.doc(`posts/${postId}`).set({ rating: roundedRating }, { merge: true })
+        console.log(`succeed to update rating | ratingId: ${context.params.ratingId}`)
+    } catch (err) {
+        console.log(`failed to update rating | ratingId: ${context.params.ratingId} | ${err}`)
+    }
+
+    function round(value: number, precision: number) {
+        const multiplier = Math.pow(10, precision || 0);
+        return Math.round(value * multiplier) / multiplier;
+    }
+
+}
+

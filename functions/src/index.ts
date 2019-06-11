@@ -51,6 +51,13 @@ exports.onShareCreated = functions.firestore.document('shares/shareId').onCreate
     }
 )
 
+exports.onRatingCreated = functions.firestore.document('ratings/ratingId').onCreate(
+    async (snapshot, context) => {
+        const rating = snapshot.data()
+        if (rating) await utils.updateRating(context, rating)
+    }
+)
+
 exports.onPostCreated = functions.firestore.document('posts/{postId}').onCreate(async (snap, context) => {
     const post = snap.data()
     if (post) {
