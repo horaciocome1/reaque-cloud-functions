@@ -130,6 +130,18 @@ export async function countUserPosts(context: functions.EventContext, post: Fire
     }
 }
 
+export async function countTopicUsers(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
+    try {
+        const db = admin.firestore()
+        const topicId: string = post.topic.id
+        const snapshot = await db.collection('users').where('topic.id', '==', topicId).get()
+        await db.doc(`topics/${topicId}`).set({ users: snapshot.size }, { merge: true })
+        console.log(`succeed to count topic's posts | postId: ${context.params.postId}`)
+    } catch (err) {
+        console.log(`failed to count topic's posts | postId: ${context.params.postId} | ${err}`)
+    }
+}
+
 export async function initializeUser(user: admin.auth.UserRecord) {
     try {
         const data = {
