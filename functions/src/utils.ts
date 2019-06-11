@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
+import { Timestamp } from '@google-cloud/firestore';
 
 export async function countSubscribers(context: functions.EventContext, subscription: FirebaseFirestore.DocumentData) {
     try {
@@ -90,5 +91,24 @@ export async function initializePost(context: functions.EventContext) {
         console.log(`succeed to initialize post | postId: ${context.params.postId}`)
     } catch (err) {
         console.log(`failed to initialize post | postId: ${context.params.postId} | ${err}`)
+    }
+}
+
+export async function initializeUser(user: admin.auth.UserRecord) {
+    try {
+        const data = {
+            name: user.displayName,
+            email: user.email,
+            pic: user.photoURL,
+            since: Timestamp.now(),
+            subscribers: 0,
+            subscriptions: 0,
+            posts: 0
+        }
+        const db = admin.firestore()
+        await db.doc(`users/${user.uid}`).set(data, { merge: true })
+        console.log(`succeed to initialize user | userId: ${user.uid}`)
+    } catch (err) {
+        console.log(`failed to initialize user | userId: ${user.uid} | ${err}`)
     }
 }
