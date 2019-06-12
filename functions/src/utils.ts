@@ -200,25 +200,56 @@ export async function countTopicUsers(context: functions.EventContext, post: Fir
     }
 }
 
-export async function caclculatePostScore(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
+export async function calculatePostScore(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
     try {
         const db = admin.firestore()
         const timestamp: FirebaseFirestore.Timestamp = post.timestamp
-        const timeFactor = 1 / timestamp.toMillis()
+        const timeFactor = safeDivision(1, timestamp.toMillis())
         const readings: number = post.readings
-        const readingsFactor = 0 - (1 / readings)
+        const readingsFactor = 0 - safeDivision(1, readings)
         const bookmarks: number = post.bookmarks
-        const bookmarksFactor = 0 - (1 / bookmarks)
+        const bookmarksFactor = 0 - safeDivision(1, bookmarks)
         const shares: number = post.shares
-        const sharesFactor = 0 - (1 / shares)
+        const sharesFactor = 0 - safeDivision(1, shares)
         const rate: number = post.rate
-        const rateFactor = rate / 100
+        const rateFactor = safeDivision(rate, 100)
         const score = timeFactor + readingsFactor + bookmarksFactor + sharesFactor + rateFactor
         await db.doc(`posts/${context.params.postId}`).set({score: score}, {merge: true})
         console.log(`succeed to calculate post's score | postId: ${context.params.postId}`)
     } catch (err) {
         console.log(`failed to calculate post's score | postId: ${context.params.postId} | ${err}`)
     }
+
+    function safeDivision(a: number, b: number) {
+        if (b !== 0)
+            return a / b
+        return 0
+    }
+
+}
+
+export async function calculateTopicPopularity(context: functions.EventContext, topic: FirebaseFirestore.DocumentData) {
+    try {
+        const db = admin.firestore()
+        const posts: number = topic.posts
+        const postsFactor = 0 - safeDivision(1, posts)
+        const users: number = topic.users
+        const usersFactor = 0 - safeDivision(1, users)
+        const readings: number = topic.readings
+        const readingsFactor = 0 - safeDivision(1, readings)
+        const popularity = postsFactor + usersFactor + readingsFactor
+        await db.doc(`topics/${context.params.topicId}`).set({ popularity: popularity }, { merge: true })
+        console.log(`succeed to calculate topic's score | topicId: ${context.params.topicId}`)
+    } catch (err) {
+        console.log(`failed to calculate topic's score | topicId: ${context.params.topicId} | ${err}`)
+    }
+
+    function safeDivision(a: number, b: number) {
+        if (b !== 0)
+            return a / b
+        return 0
+    }
+
 }
 
 export async function initializeTopic(context: functions.EventContext) {

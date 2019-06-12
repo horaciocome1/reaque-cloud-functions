@@ -94,12 +94,22 @@ exports.onPostUpdated = functions.firestore.document('posts/postId').onUpdate(
         const after = snapshot.after.data()
         if(before && after)
             if(!utils.changeOcurred(before.score, after.score))
-                await utils.caclculatePostScore(context, after)
+                await utils.calculatePostScore(context, after)
     }
 )
 
 exports.onTopicCreated = functions.firestore.document('topic/topicsId').onCreate(
     async (_, context) => utils.initializeTopic(context)
+)
+
+exports.onTopicUpdated = functions.firestore.document('topics/topicId').onUpdate(
+    async (snapshot, context) => {
+        const before = snapshot.before.data()
+        const after = snapshot.after.data()
+        if(before && after)
+            if(!utils.changeOcurred(before.popularity, after.popularity))
+                await utils.calculateTopicPopularity(context, after)
+    }
 )
 
 exports.onAccountCreated = functions.auth.user().onCreate(
