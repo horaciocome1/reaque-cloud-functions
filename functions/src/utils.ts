@@ -45,9 +45,34 @@ export async function countReadings(context: functions.EventContext, reading: Fi
         const readingsSnapshot = await db.collection('readings').where('post.id', '==', postId).get()
         await db.doc(`posts/${postId}`).set({ readings: readingsSnapshot.size }, { merge: true })
         console.log(`succeed to count readings | readingId: ${context.params.readingId}`)
+        const topicId = await getTopicId(postId)
+        if (topicId !== null) await countTopicReadings(topicId)
     } catch (err) {
         console.log(`failed to count readings | readingId: ${context.params.readingId} | ${err}`)
     }
+
+    async function getTopicId(postId: string) {
+        const db = admin.firestore()
+        const snapshot = await db.doc(`posts/${postId}`).get()
+        const post = snapshot.data()
+        if (post) {
+            const topicId: string = post.topic.id
+            return topicId
+        }
+        return null
+    } 
+
+    async function countTopicReadings(topicId: string) {
+        const db = admin.firestore()
+        const snapshot = await db.collection('posts').where('topic.id', '==', topicId).get()
+        let sum = 0
+        snapshot.forEach(async doc => {
+            const post = doc.data()
+            if (post) sum += post.readings
+        })
+        await db.doc(`topics/${topicId}`).set({ readings: sum }, { merge: true })
+    }
+
 }
 
 export async function countShares(context: functions.EventContext, share: FirebaseFirestore.DocumentData) {
