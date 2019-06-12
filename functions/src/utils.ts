@@ -1,6 +1,8 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
-import { Timestamp, DocumentReference } from '@google-cloud/firestore';
+import { Timestamp, DocumentReference } from '@google-cloud/firestore'
+import { isEqual } from "lodash"
+import { isNullOrUndefined } from "util"
 
 export async function countSubscribers(context: functions.EventContext, subscription: FirebaseFirestore.DocumentData) {
     try {
@@ -121,7 +123,8 @@ export async function initializePost(context: functions.EventContext) {
             bookmarks: 0,
             readings: 0,
             rating: 0,
-            shares: 0
+            shares: 0,
+            score: 0
         }
         const db = admin.firestore()
         await db.doc(`posts/${context.params.postId}`).set(data, { merge: true })
@@ -197,11 +200,34 @@ export async function countTopicUsers(context: functions.EventContext, post: Fir
     }
 }
 
+export async function caclculatePostScore(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
+    try {
+        const db = admin.firestore()
+        const timestamp: FirebaseFirestore.Timestamp = post.timestamp
+        const timeFactor = 1 / timestamp.toMillis()
+        const readings: number = post.readings
+        const readingsFactor = 0 - (1 / readings)
+        const bookmarks: number = post.bookmarks
+        const bookmarksFactor = 0 - (1 / bookmarks)
+        const shares: number = post.shares
+        const sharesFactor = 0 - (1 / shares)
+        const rate: number = post.rate
+        const rateFactor = rate / 100
+        const score = timeFactor + readingsFactor + bookmarksFactor + sharesFactor + rateFactor
+        await db.doc(`posts/${context.params.postId}`).set({score: score}, {merge: true})
+        console.log(`succeed to calculate post's score | postId: ${context.params.postId}`)
+    } catch (err) {
+        console.log(`failed to calculate post's score | postId: ${context.params.postId} | ${err}`)
+    }
+}
+
 export async function initializeTopic(context: functions.EventContext) {
     try {
         const data = {
             posts: 0,
-            users: 0
+            users: 0,
+            readings: 0,
+            popularity: 0
         }
         const db = admin.firestore()
         await db.doc(`topics/${context.params.topicId}`).set(data, { merge: true })
@@ -228,4 +254,15 @@ export async function initializeUser(user: admin.auth.UserRecord) {
     } catch (err) {
         console.log(`failed to initialize user | userId: ${user.uid} | ${err}`)
     }
+}
+
+export function changeOcurred(before: any, after: any): boolean {
+
+    const isEquivalent = () => {
+        return before && typeof before.isEqual === 'function' ? before.isEqual(after): isEqual(before, after);
+    }
+
+    if (!isNullOrUndefined(before) && !isNullOrUndefined(after) && !isEquivalent())
+        return true
+    return false
 }

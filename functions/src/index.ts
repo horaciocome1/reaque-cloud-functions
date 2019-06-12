@@ -88,6 +88,16 @@ exports.onPostCreated = functions.firestore.document('posts/postId').onCreate(
     }
 )
 
+exports.onPostUpdated = functions.firestore.document('posts/postId').onUpdate(
+    async (snapshot, context) => {
+        const before = snapshot.before.data()
+        const after = snapshot.after.data()
+        if(before && after)
+            if(!utils.changeOcurred(before.score, after.score))
+                await utils.caclculatePostScore(context, after)
+    }
+)
+
 exports.onTopicCreated = functions.firestore.document('topic/topicsId').onCreate(
     async (_, context) => utils.initializeTopic(context)
 )
