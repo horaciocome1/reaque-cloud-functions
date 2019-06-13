@@ -131,7 +131,8 @@ export async function createFeedEntryForEachSubscriber(context: functions.EventC
             user: {
                 id: userId,
                 name: post.user.name
-            }
+            },
+            content_id: context.params.postId
         }
         const db = admin.firestore()
         const snapshot = await db.collection('subscriptions').where('subscribed.id', '==', userId).get()
