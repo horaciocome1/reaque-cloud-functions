@@ -47,14 +47,20 @@ exports.onBookmarkDeleted = functions.firestore.document('bookmarks/bookmarkId')
 exports.onReadingCreated = functions.firestore.document('readings/readingId').onCreate(
     async (snapshot, context) => {
         const reading = snapshot.data()
-        if (reading) await utils.countReadings(context, reading)
+        if (reading) {
+            const promises = [
+                utils.countPostReadings(context, reading),
+                utils.countTopicReadings(context, reading)
+            ]
+            await Promise.all(promises)
+        }
     }
 )
 
 exports.onShareCreated = functions.firestore.document('shares/shareId').onCreate(
     async (snapshot, context) => {
         const share = snapshot.data()
-        if (share) await utils.countReadings(context, share)
+        if (share) await utils.countShares(context, share)
     }
 )
 

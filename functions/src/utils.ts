@@ -8,8 +8,8 @@ export async function countSubscribers(context: functions.EventContext, subscrip
     try {
         const subscribedId: string = subscription.subscribed.id
         const db = admin.firestore()
-        const subscriptionsSnapshot = await db.collection('subscriptions').where('subscribed.id', '==', subscribedId).get()
-        await db.doc(`users/${subscribedId}`).set({ subscribers: subscriptionsSnapshot.size }, { merge: true })
+        const snapshot = await db.collection('subscriptions').where('subscribed.id', '==', subscribedId).get()
+        await db.doc(`users/${subscribedId}`).set({ subscribers: snapshot.size }, { merge: true })
         console.log(`succeed to count subscribers | subscriptionId: ${context.params.subscriptionId}`)
     } catch (err) {
         console.log(`failed to count subscribers | subscriptionId: ${context.params.subscriptionId} | ${err}`)
@@ -20,8 +20,8 @@ export async function countSubscriptions(context: functions.EventContext, subscr
     try {
         const subscriberId: string = subscription.subscriber.id
         const db = admin.firestore()
-        const subscriptionsSnapshot = await db.collection('subscriptions').where('subscriber.id', '==', subscriberId).get()
-        await db.doc(`users/${subscriberId}`).set({ subscriptions: subscriptionsSnapshot.size }, { merge: true })
+        const snapshot = await db.collection('subscriptions').where('subscriber.id', '==', subscriberId).get()
+        await db.doc(`users/${subscriberId}`).set({ subscriptions: snapshot.size }, { merge: true })
         console.log(`succeed to count subscriptions | subscriptionId: ${context.params.subscriptionId}`)
     } catch (err) {
         console.log(`failed to count subscriptions | subscriptionId: ${context.params.subscriptionId} | ${err}`)
@@ -40,41 +40,28 @@ export async function countBookmarks(context: functions.EventContext, bookmark: 
     }
 }
 
-export async function countReadings(context: functions.EventContext, reading: FirebaseFirestore.DocumentData) {
+export async function countPostReadings(context: functions.EventContext, reading: FirebaseFirestore.DocumentData) {
     try {
         const postId: string = reading.post.id
         const db = admin.firestore()
         const readingsSnapshot = await db.collection('readings').where('post.id', '==', postId).get()
         await db.doc(`posts/${postId}`).set({ readings: readingsSnapshot.size }, { merge: true })
-        console.log(`succeed to count readings | readingId: ${context.params.readingId}`)
-        const topicId = await getTopicId(postId)
-        if (topicId !== null) await countTopicReadings(topicId)
+        console.log(`succeed to count readings for post | readingId: ${context.params.readingId}`)
     } catch (err) {
-        console.log(`failed to count readings | readingId: ${context.params.readingId} | ${err}`)
+        console.log(`failed to count readings for post | readingId: ${context.params.readingId} | ${err}`)
     }
+}
 
-    async function getTopicId(postId: string) {
+export async function countTopicReadings(context: functions.EventContext, reading: FirebaseFirestore.DocumentData) {
+    try {
+        const topicId: string = reading.topic.id
         const db = admin.firestore()
-        const snapshot = await db.doc(`posts/${postId}`).get()
-        const post = snapshot.data()
-        if (post) {
-            const topicId: string = post.topic.id
-            return topicId
-        }
-        return null
-    } 
-
-    async function countTopicReadings(topicId: string) {
-        const db = admin.firestore()
-        const snapshot = await db.collection('posts').where('topic.id', '==', topicId).get()
-        let sum = 0
-        snapshot.forEach(async doc => {
-            const post = doc.data()
-            if (post) sum += post.readings
-        })
-        await db.doc(`topics/${topicId}`).set({ readings: sum }, { merge: true })
+        const readingsSnapshot = await db.collection('readings').where('topic.id', '==', topicId).get()
+        await db.doc(`topics/${topicId}`).set({ readings: readingsSnapshot.size }, { merge: true })
+        console.log(`succeed to count readings for topic | readingId: ${context.params.readingId}`)
+    } catch (err) {
+        console.log(`failed to count readings for topic | readingId: ${context.params.readingId} | ${err}`)
     }
-
 }
 
 export async function countShares(context: functions.EventContext, share: FirebaseFirestore.DocumentData) {
@@ -204,25 +191,20 @@ export async function calculatePostScore(context: functions.EventContext, post: 
     try {
         const db = admin.firestore()
         const timestamp: FirebaseFirestore.Timestamp = post.timestamp
-        const timeFactor = safeDivision(1, timestamp.toMillis())
-        const readings: number = post.readings
-        const readingsFactor = 0 - safeDivision(1, readings)
-        const bookmarks: number = post.bookmarks
-        const bookmarksFactor = 0 - safeDivision(1, bookmarks)
-        const shares: number = post.shares
-        const sharesFactor = 0 - safeDivision(1, shares)
-        const rate: number = post.rate
-        const rateFactor = safeDivision(rate, 100)
-        const score = timeFactor + readingsFactor + bookmarksFactor + sharesFactor + rateFactor
+        const score = getFactor(50, timestamp.toMillis())
+            + getFactor(10, post.readings)
+            + getFactor(10, post.bookmarks)
+            + getFactor(10, post.shares)
+            + getFactor(20, post.rate)
         await db.doc(`posts/${context.params.postId}`).set({score: score}, {merge: true})
         console.log(`succeed to calculate post's score | postId: ${context.params.postId}`)
     } catch (err) {
         console.log(`failed to calculate post's score | postId: ${context.params.postId} | ${err}`)
     }
-
-    function safeDivision(a: number, b: number) {
-        if (b !== 0)
-            return a / b
+    
+    function getFactor(percent: number, x: number): number {
+        if (x !== 0)
+            return (1 - (1 / x)) * (percent / 100)
         return 0
     }
 
@@ -231,22 +213,18 @@ export async function calculatePostScore(context: functions.EventContext, post: 
 export async function calculateTopicPopularity(context: functions.EventContext, topic: FirebaseFirestore.DocumentData) {
     try {
         const db = admin.firestore()
-        const posts: number = topic.posts
-        const postsFactor = 0 - safeDivision(1, posts)
-        const users: number = topic.users
-        const usersFactor = 0 - safeDivision(1, users)
-        const readings: number = topic.readings
-        const readingsFactor = 0 - safeDivision(1, readings)
-        const popularity = postsFactor + usersFactor + readingsFactor
+        const popularity = getFactor(25, topic.posts)
+            + getFactor(25, topic.users)
+            + getFactor(50, topic.readings)
         await db.doc(`topics/${context.params.topicId}`).set({ popularity: popularity }, { merge: true })
         console.log(`succeed to calculate topic's score | topicId: ${context.params.topicId}`)
     } catch (err) {
         console.log(`failed to calculate topic's score | topicId: ${context.params.topicId} | ${err}`)
     }
 
-    function safeDivision(a: number, b: number) {
-        if (b !== 0)
-            return a / b
+    function getFactor(percent: number, x: number): number {
+        if (x !== 0)
+            return (1 - (1 / x)) * (percent / 100)
         return 0
     }
 
