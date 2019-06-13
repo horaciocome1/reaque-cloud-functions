@@ -54,7 +54,7 @@ export async function countPostReadings(context: functions.EventContext, reading
 
 export async function countTopicReadings(context: functions.EventContext, reading: FirebaseFirestore.DocumentData) {
     try {
-        const topicId: string = reading.topic.id
+        const topicId: string = reading.post.topic.id
         const db = admin.firestore()
         const readingsSnapshot = await db.collection('readings').where('topic.id', '==', topicId).get()
         await db.doc(`topics/${topicId}`).set({ readings: readingsSnapshot.size }, { merge: true })
