@@ -285,14 +285,3 @@ export async function initializeUser(user: admin.auth.UserRecord) {
         console.log(`failed to initialize user | userId: ${user.uid} | ${err}`)
     }
 }
-
-export function changeOcurred(before: any, after: any): boolean {
-
-    const isEquivalent = () => {
-        return before && typeof before.isEqual === 'function' ? before.isEqual(after): isEqual(before, after);
-    }
-
-    if (!isNullOrUndefined(before) && !isNullOrUndefined(after) && !isEquivalent())
-        return true
-    return false
-}
