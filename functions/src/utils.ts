@@ -76,7 +76,7 @@ export async function countShares(context: functions.EventContext, share: Fireba
     }
 }
 
-export async function updateRating(context: functions.EventContext, rating: FirebaseFirestore.DocumentData) {
+export async function calculateRating(context: functions.EventContext, rating: FirebaseFirestore.DocumentData) {
     try {
         const postId: string = rating.post.id
         const db = admin.firestore()
@@ -188,17 +188,21 @@ export async function countTopicUsers(context: functions.EventContext, post: Fir
     }
 }
 
-export async function calculatePostScore(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
+export async function calculatePostScore(context: functions.EventContext, postId: string) {
     try {
         const db = admin.firestore()
-        const timestamp: FirebaseFirestore.Timestamp = post.timestamp
-        const score = getFactor(50, timestamp.toMillis())
-            + getFactor(10, post.readings)
-            + getFactor(10, post.bookmarks)
-            + getFactor(10, post.shares)
-            + getFactor(20, post.rate)
-        await db.doc(`posts/${context.params.postId}`).set({score: score}, {merge: true})
-        console.log(`succeed to calculate post's score | postId: ${context.params.postId}`)
+        const snapshot = await db.doc(`posts/${postId}`).get()
+        const post = snapshot.data()
+        if (post) {
+            const timestamp: FirebaseFirestore.Timestamp = post.timestamp
+            const score = getFactor(50, timestamp.toMillis())
+                + getFactor(10, post.readings)
+                + getFactor(10, post.bookmarks)
+                + getFactor(10, post.shares)
+                + getFactor(20, post.rate)
+            await db.doc(`posts/${context.params.postId}`).set({score: score}, {merge: true})
+            console.log(`succeed to calculate post's score | postId: ${context.params.postId}`)
+        }
     } catch (err) {
         console.log(`failed to calculate post's score | postId: ${context.params.postId} | ${err}`)
     }
