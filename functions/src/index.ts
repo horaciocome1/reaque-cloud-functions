@@ -33,20 +33,16 @@ exports.onSubscriptionDeleted = functions.firestore.document('subscriptions/subs
 exports.onBookmarkCreated = functions.firestore.document('bookmarks/bookmarkId').onCreate(
     async (snapshot, context) => {
         const bookmark = snapshot.data()
-        if (bookmark) {
+        if (bookmark) 
             await utils.countBookmarks(context, bookmark)
-            await utils.calculatePostScore(context, bookmark.post.id)
-        }
     }
 )
 
 exports.onBookmarkDeleted = functions.firestore.document('bookmarks/bookmarkId').onDelete(
     async (snapshot, context) => {
         const bookmark = snapshot.data()
-        if (bookmark) {
+        if (bookmark)
             await utils.countBookmarks(context, bookmark)
-            await utils.calculatePostScore(context, bookmark.post.id)
-        }
     }
 )
 
@@ -59,8 +55,6 @@ exports.onReadingCreated = functions.firestore.document('readings/readingId').on
                 utils.countTopicReadings(context, reading)
             ]
             await Promise.all(promises)
-            await utils.calculatePostScore(context, reading.post.id)
-            await utils.calculateTopicPopularity(context, reading.post.id)
         }
     }
 )
@@ -68,30 +62,24 @@ exports.onReadingCreated = functions.firestore.document('readings/readingId').on
 exports.onShareCreated = functions.firestore.document('shares/shareId').onCreate(
     async (snapshot, context) => {
         const share = snapshot.data()
-        if (share) {
+        if (share)
             await utils.countShares(context, share)
-            await utils.calculatePostScore(context, share.post.id)
-        }
     }
 )
 
 exports.onRatingCreated = functions.firestore.document('ratings/ratingId').onCreate(
     async (snapshot, context) => {
         const rating = snapshot.data()
-        if (rating) {
+        if (rating)
             await utils.calculateRating(context, rating)
-            await utils.calculatePostScore(context, rating.post.id)
-        }
     }
 )
 
 exports.onRatingUpdated = functions.firestore.document('ratings/ratingId').onUpdate(
     async (snapshot, context) => {
         const rating = snapshot.after.data()
-        if (rating) {
+        if (rating)
             await utils.calculateRating(context, rating)
-            await utils.calculatePostScore(context, rating.post.id)
-        }
     }
 )
 
@@ -100,14 +88,11 @@ exports.onPostCreated = functions.firestore.document('posts/postId').onCreate(
         const post = snapshot.data()
         if (post) {
             const promises = [
-                utils.initializePost(context),
-                utils.countTopicPosts(context, post),
-                utils.countUserPosts(context, post),
+                utils.initializePost(context, post),
                 utils.countTopicUsers(context, post),
                 utils.createFeedEntryForEachSubscriber(context, post)
             ]
             await Promise.all(promises)
-            await utils.calculateTopicPopularity(context, snapshot.id)
         }
     }
 )
