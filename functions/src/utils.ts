@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
-import { Timestamp, DocumentReference } from '@google-cloud/firestore'
+import { Timestamp, DocumentReference, WriteResult } from '@google-cloud/firestore'
 
 export async function countSubscribers(context: functions.EventContext, subscription: FirebaseFirestore.DocumentData) {
     try {
@@ -214,7 +214,7 @@ export async function createFeed(context: functions.EventContext, request: Fireb
         const snapshot = await db.collection('feeds').where('subscriber.id', '==', userId).get()
         if (snapshot.size === 0) {
             const postsSnapshot = await db.collection('posts').orderBy('score', 'desc').get()
-            const promises: Promise<DocumentReference>[] = []
+            const promises: Promise<WriteResult> | Promise<DocumentReference>[] = []
             postsSnapshot.forEach(doc => {
                 const post = doc.data()
                 if (post) {
@@ -235,6 +235,7 @@ export async function createFeed(context: functions.EventContext, request: Fireb
             })
             await Promise.all(promises)
             console.log(`succeed to create feed to request | requestId: ${context.params.requestId}`)
+            await db.doc(`feed_requests/${context.params.requestId}`).delete()
         }
     } catch (err) {
         console.log(`failed to create feed to request | requestId: ${context.params.requestId} | ${err}`)
