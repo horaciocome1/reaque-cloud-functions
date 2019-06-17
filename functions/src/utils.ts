@@ -211,28 +211,31 @@ export async function createFeed(context: functions.EventContext, request: Fireb
     try {
         const userId: string = request.user.id
         const db = admin.firestore()
-        const snapshot = await db.collection('posts').orderBy('score', 'desc').get()
-        const promises: Promise<DocumentReference>[] = []
-        snapshot.forEach(doc => {
-            const post = doc.data()
-            if (post) {
-                const feed: FirebaseFirestore.DocumentData = {
-                    title: post.title,
-                    pic: post.pic,
-                    timestamp: post.timestamp,
-                    user: {
-                        id: post.user.id,
-                        name: post.user.name
-                    },
-                    content_id: doc.id,
-                    subscriber: { id: userId }
+        const snapshot = await db.collection('feeds').where('subscriber.id', '==', userId).get()
+        if (snapshot.size === 0) {
+            const postsSnapshot = await db.collection('posts').orderBy('score', 'desc').get()
+            const promises: Promise<DocumentReference>[] = []
+            postsSnapshot.forEach(doc => {
+                const post = doc.data()
+                if (post) {
+                    const feed: FirebaseFirestore.DocumentData = {
+                        title: post.title,
+                        pic: post.pic,
+                        timestamp: post.timestamp,
+                        user: {
+                            id: post.user.id,
+                            name: post.user.name
+                        },
+                        content_id: doc.id,
+                        subscriber: { id: userId }
+                    }
+                    const promise = db.collection('feeds').add(feed)
+                    promises.push(promise)
                 }
-                const promise = db.collection('feeds').add(feed)
-                promises.push(promise)
-            }
-        })
-        await Promise.all(promises)
-        console.log(`succeed to create feed to request | requestId: ${context.params.requestId}`)
+            })
+            await Promise.all(promises)
+            console.log(`succeed to create feed to request | requestId: ${context.params.requestId}`)
+        }
     } catch (err) {
         console.log(`failed to create feed to request | requestId: ${context.params.requestId} | ${err}`)
     }
