@@ -215,14 +215,17 @@ export async function calculatePostScore(context: functions.EventContext, postId
 
 }
 
-export async function calculateTopicPopularity(context: functions.EventContext, topic: FirebaseFirestore.DocumentData) {
+export async function calculateTopicPopularity(context: functions.EventContext, postId: string) {
     try {
         const db = admin.firestore()
-        const popularity = getFactor(25, topic.posts)
-            + getFactor(25, topic.users)
-            + getFactor(50, topic.readings)
-        await db.doc(`topics/${context.params.topicId}`).set({ popularity: popularity }, { merge: true })
-        console.log(`succeed to calculate topic's score | topicId: ${context.params.topicId}`)
+        const topic = await getTopic()
+        if (topic){
+            const popularity = getFactor(25, topic.posts)
+                + getFactor(25, topic.users)
+                + getFactor(50, topic.readings)
+            await db.doc(`topics/${context.params.topicId}`).set({ popularity: popularity }, { merge: true })
+            console.log(`succeed to calculate topic's score | topicId: ${context.params.topicId}`)
+        }
     } catch (err) {
         console.log(`failed to calculate topic's score | topicId: ${context.params.topicId} | ${err}`)
     }
@@ -231,6 +234,19 @@ export async function calculateTopicPopularity(context: functions.EventContext, 
         if (x !== 0)
             return (1 - (1 / x)) * (percent / 100)
         return 0
+    }
+
+    async function getTopic() {
+        const db = admin.firestore()
+        const postSnapshot = await db.doc(`posts/${postId}`).get()
+        const post = postSnapshot.data()
+        if (post) {
+            const topicSnapshot = await db.doc(`topics/${post.topic.id}`).get()
+            const topic = topicSnapshot.data()
+            if (topic)
+                return topic
+        }
+        return
     }
 
 }

@@ -60,6 +60,7 @@ exports.onReadingCreated = functions.firestore.document('readings/readingId').on
             ]
             await Promise.all(promises)
             await utils.calculatePostScore(context, reading.post.id)
+            await utils.calculateTopicPopularity(context, snapshot.id)
         }
     }
 )
@@ -106,22 +107,13 @@ exports.onPostCreated = functions.firestore.document('posts/postId').onCreate(
                 utils.createFeedEntryForEachSubscriber(context, post)
             ]
             await Promise.all(promises)
+            await utils.calculateTopicPopularity(context, snapshot.id)
         }
     }
 )
 
 exports.onTopicCreated = functions.firestore.document('topic/topicsId').onCreate(
     async (_, context) => utils.initializeTopic(context)
-)
-
-exports.onTopicUpdated = functions.firestore.document('topics/topicId').onUpdate(
-    async (snapshot, context) => {
-        const before = snapshot.before.data()
-        const after = snapshot.after.data()
-        if(before && after)
-            if(!utils.changeOcurred(before.popularity, after.popularity))
-                await utils.calculateTopicPopularity(context, after)
-    }
 )
 
 exports.onAccountCreated = functions.auth.user().onCreate(
