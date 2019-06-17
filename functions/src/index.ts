@@ -4,7 +4,7 @@ import * as utils from './utils'
 
 admin.initializeApp()
 
-exports.onSubscriptionCreated = functions.firestore.document('subscriptions/subscriptionId').onCreate(
+export const onSubscriptionCreated = functions.firestore.document('subscriptions/subscriptionId').onCreate(
     async (snapshot, context) => {
         const subscription = snapshot.data()
         if (subscription) {
@@ -17,7 +17,7 @@ exports.onSubscriptionCreated = functions.firestore.document('subscriptions/subs
     }
 )
 
-exports.onSubscriptionDeleted = functions.firestore.document('subscriptions/subscriptionId').onDelete(
+export const onSubscriptionDeleted = functions.firestore.document('subscriptions/subscriptionId').onDelete(
     async (snapshot, context) => {
         const subscription = snapshot.data()
         if (subscription) {
@@ -30,15 +30,14 @@ exports.onSubscriptionDeleted = functions.firestore.document('subscriptions/subs
     }
 )
 
-exports.onBookmarkCreated = functions.firestore.document('bookmarks/bookmarkId').onCreate(
+export const onBookmarkCreated = functions.firestore.document('bookmarks/bookmarkId').onCreate(
     async (snapshot, context) => {
         const bookmark = snapshot.data()
         if (bookmark) 
             await utils.countBookmarks(context, bookmark)
     }
 )
-
-exports.onBookmarkDeleted = functions.firestore.document('bookmarks/bookmarkId').onDelete(
+export const onBookmarkDeleted = functions.firestore.document('bookmarks/bookmarkId').onDelete(
     async (snapshot, context) => {
         const bookmark = snapshot.data()
         if (bookmark)
@@ -46,7 +45,7 @@ exports.onBookmarkDeleted = functions.firestore.document('bookmarks/bookmarkId')
     }
 )
 
-exports.onReadingCreated = functions.firestore.document('readings/readingId').onCreate(
+export const onReadingCreated = functions.firestore.document('readings/readingId').onCreate(
     async (snapshot, context) => {
         const reading = snapshot.data()
         if (reading) {
@@ -59,7 +58,7 @@ exports.onReadingCreated = functions.firestore.document('readings/readingId').on
     }
 )
 
-exports.onShareCreated = functions.firestore.document('shares/shareId').onCreate(
+export const onShareCreated = functions.firestore.document('shares/shareId').onCreate(
     async (snapshot, context) => {
         const share = snapshot.data()
         if (share)
@@ -67,7 +66,7 @@ exports.onShareCreated = functions.firestore.document('shares/shareId').onCreate
     }
 )
 
-exports.onRatingCreated = functions.firestore.document('ratings/ratingId').onCreate(
+export const onRatingCreated = functions.firestore.document('ratings/ratingId').onCreate(
     async (snapshot, context) => {
         const rating = snapshot.data()
         if (rating)
@@ -75,7 +74,7 @@ exports.onRatingCreated = functions.firestore.document('ratings/ratingId').onCre
     }
 )
 
-exports.onRatingUpdated = functions.firestore.document('ratings/ratingId').onUpdate(
+export const onRatingUpdated = functions.firestore.document('ratings/ratingId').onUpdate(
     async (snapshot, context) => {
         const rating = snapshot.after.data()
         if (rating)
@@ -83,7 +82,7 @@ exports.onRatingUpdated = functions.firestore.document('ratings/ratingId').onUpd
     }
 )
 
-exports.onPostCreated = functions.firestore.document('posts/postId').onCreate(
+export const onPostCreated = functions.firestore.document('posts/postId').onCreate(
     async (snapshot, context) => {
         const post = snapshot.data()
         if (post) {
@@ -97,10 +96,18 @@ exports.onPostCreated = functions.firestore.document('posts/postId').onCreate(
     }
 )
 
-exports.onTopicCreated = functions.firestore.document('topic/topicsId').onCreate(
+export const onTopicCreated = functions.firestore.document('topic/topicsId').onCreate(
     async (_, context) => utils.initializeTopic(context)
 )
 
-exports.onAccountCreated = functions.auth.user().onCreate(
+export const onFeedRequestCreated = functions.firestore.document('feed_requests/requestId').onCreate(
+    async (snapshot, context) => {
+        const request = snapshot.data()
+        if (request) 
+            await utils.createFeed(context, request)
+    }
+)
+
+export const onAccountCreated = functions.auth.user().onCreate(
     async (user, _) => await utils.initializeUser(user)
 )

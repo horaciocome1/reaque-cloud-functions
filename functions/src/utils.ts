@@ -135,7 +135,7 @@ export async function createFeedEntryForEachSubscriber(context: functions.EventC
         const feed: FirebaseFirestore.DocumentData = {
             title: post.title,
             pic: post.pic,
-            timestamp: Timestamp.now(),
+            timestamp: post.timestamp,
             user: {
                 id: userId,
                 name: post.user.name
@@ -204,6 +204,37 @@ export async function initializeUser(user: admin.auth.UserRecord) {
         console.log(`succeed to initialize user | userId: ${user.uid}`)
     } catch (err) {
         console.log(`failed to initialize user | userId: ${user.uid} | ${err}`)
+    }
+}
+
+export async function createFeed(context: functions.EventContext, request: FirebaseFirestore.DocumentData) {
+    try {
+        const userId: string = request.user.id
+        const db = admin.firestore()
+        const snapshot = await db.collection('posts').orderBy('score', 'desc').get()
+        const promises: Promise<DocumentReference>[] = []
+        snapshot.forEach(doc => {
+            const post = doc.data()
+            if (post) {
+                const feed: FirebaseFirestore.DocumentData = {
+                    title: post.title,
+                    pic: post.pic,
+                    timestamp: post.timestamp,
+                    user: {
+                        id: post.user.id,
+                        name: post.user.name
+                    },
+                    content_id: doc.id,
+                    subscriber: { id: userId }
+                }
+                const promise = db.collection('feeds').add(feed)
+                promises.push(promise)
+            }
+        })
+        await Promise.all(promises)
+        console.log(`succeed to create feed to request | requestId: ${context.params.requestId}`)
+    } catch (err) {
+        console.log(`failed to create feed to request | requestId: ${context.params.requestId} | ${err}`)
     }
 }
 
