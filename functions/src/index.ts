@@ -60,7 +60,7 @@ exports.onReadingCreated = functions.firestore.document('readings/readingId').on
             ]
             await Promise.all(promises)
             await utils.calculatePostScore(context, reading.post.id)
-            await utils.calculateTopicPopularity(context, snapshot.id)
+            await utils.calculateTopicPopularity(context, reading.post.id)
         }
     }
 )
