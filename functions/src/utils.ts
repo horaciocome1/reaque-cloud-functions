@@ -118,15 +118,51 @@ export async function initializePost(context: functions.EventContext, post: Fire
         }
         const db = admin.firestore()
         await db.doc(`posts/${context.params.postId}`).set(data, { merge: true })
-        await calculateTopicPopularity(context, context.params.postId)
         console.log(`succeed to initialize post | postId: ${context.params.postId}`)
         await Promise.all([
             countTopicPosts(context, post),
-            countUserPosts(context, post)
+            countUserPosts(context, post),
+            calculateUserTopTopic()
         ])
+        await calculateTopicPopularity(context, context.params.postId)
     } catch (err) {
         console.log(`failed to initialize post | postId: ${context.params.postId} | ${err}`)
     }
+
+    async function calculateUserTopTopic() {
+        try {
+            const userId: string = post.user.id
+            const db = admin.firestore()
+            const userSnapshot = await db.doc(`users/${userId}`).get()
+            const user = userSnapshot.data()
+            if (user) {
+                const topTopic = {
+                    id: "",
+                    total_posts: 0
+                }
+                for (const topicId in user.topics) {
+                    let total_posts = 0
+                    const postsSnapshot = await db.collection('posts').where('user.id', '==', userId).get()
+                    postsSnapshot.forEach(doc => {
+                        const postData = doc.data()
+                        if (postData)
+                            if (postData.topic.id === topicId)
+                                total_posts += 1
+                    })
+                    if (total_posts > topTopic.total_posts) {
+                        topTopic.id = topicId
+                        topTopic.total_posts = total_posts
+                    }
+                }
+                if (topTopic.id !== "")
+                    await db.doc(`users/${userId}`).set({ top_topic: topTopic.id }, { merge: true })
+            }
+            console.log(`succeed to calculate user's top topic`)
+        } catch (err) {
+            console.log(`failed to calculate user's top topic | ${err}`)
+        }
+    }
+
 }
 
 export async function createFeedEntryForEachSubscriber(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
