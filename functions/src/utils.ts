@@ -343,6 +343,7 @@ async function countTopicReadings(context: functions.EventContext, reading: Fire
     } catch (err) {
         console.log(`failed to count readings for topic | readingId: ${context.params.readingId} | ${err}`)
     }
+    
 }
 
 async function calculatePostScore(postId: string) {
