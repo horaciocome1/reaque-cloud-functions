@@ -76,6 +76,14 @@ export const onRatingUpdated = functions.firestore.document('ratings/{ratingId}'
     }
 )
 
+export const onRatingDeleted = functions.firestore.document('ratings/{ratingId}').onDelete(
+    async (snapshot, context) => {
+        const rating = snapshot.data()
+        if (rating)
+            await utils.calculateRating(context, rating)
+    }
+)
+
 export const onPostCreated = functions.firestore.document('posts/{postId}').onCreate(
     async (snapshot, context) => {
         const post = snapshot.data()
