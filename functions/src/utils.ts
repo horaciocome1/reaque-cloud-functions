@@ -8,25 +8,25 @@ const merge = { merge: true }
 
 export async function handleSubscription(context: functions.EventContext, create: boolean) {
     try {
-        if (create === true) {
+        if (create === true)
             await Promise.all([
                 countSubscriptions(),
                 updateLastSeen(context.params.userId),
                 addSubscriberDataToSubscribedUser()
             ])
-        } else {
+        else
             await Promise.all([
                 countSubscriptions(),
                 updateLastSeen(context.params.userId),
-                countSubscribers()
+                removeSubscriberDataFromSubscribedUser()
             ])
-        }
         await Promise.all([
             propagateUserUpdates(context.params.userId),
             propagateUserUpdates(context.params.subscriptionId)
         ])
+        console.log(`succeed to handle subscription | userId: ${context.params.userId} | ${err}`)
     } catch (err) {
-        console.log(`failed to count subscriptions | userId: ${context.params.userId} | ${err}`)
+        console.log(`failed to handle subscription | userId: ${context.params.userId} | ${err}`)
     }
 
     async function countSubscriptions() {
@@ -50,7 +50,8 @@ export async function handleSubscription(context: functions.EventContext, create
                     name: subscriber.name,
                     pic: subscriber.pic,
                     subscribers: subscriber.subscribers,
-                    top_topic: subscriber.top_topic
+                    top_topic: subscriber.top_topic,
+                    timestamp: Timestamp.now()
                 }
                 await db.doc(`users/${subscribedId}/subscribers/${context.params.userId}`).set(data, merge)
             }
@@ -58,6 +59,17 @@ export async function handleSubscription(context: functions.EventContext, create
             await countSubscribers()
         } catch (err) {
             console.log(`failed to add subscriber data to subscribed user | userId: ${context.params.subscriptionId} | ${err}`)
+        }
+    }
+
+    async function removeSubscriberDataFromSubscribedUser() {
+        try {
+            const subscribedId = context.params.subscriptionId
+            await db.doc(`users/${subscribedId}/subscribers/${context.params.userId}`).delete()
+            console.log(`succeed to remove subscriber data from subscribed user | userId: ${context.params.subscriptionId}`)
+            await countSubscribers()
+        } catch (err) {
+            console.log(`failed to remove subscriber data from subscribed user | userId: ${context.params.subscriptionId} | ${err}`)
         }
     }
 
@@ -74,41 +86,94 @@ export async function handleSubscription(context: functions.EventContext, create
 
 }
 
-export async function handleBookmark(context: functions.EventContext, snapshot: FirebaseFirestore.DocumentSnapshot, create: boolean) {
-
-}
-
-export async function countBookmarks(context: functions.EventContext, bookmark: FirebaseFirestore.DocumentData) {
+export async function handleBookmark(context: functions.EventContext, create: boolean) {
     try {
-        const postId: string = bookmark.post.id
-        const db = admin.firestore()
-        const snapshot = await db.collection('bookmarks').where('post.id', '==', postId).get()
-        await db.doc(`posts/${postId}`).set({ bookmarks: snapshot.size }, { merge: true })
-        console.log(`succeed to count bookmarks | bookmarkId: ${context.params.bookmarkId}`)
-        await Promise.all([
-            calculatePostScore(postId),
-            updateLastSeen(bookmark.user.id)
-        ])
+        if (create === true)
+            await Promise.all([
+                addUserDataToPost(),
+                updateLastSeen(context.params.userId)
+            ])
+        else
+            await Promise.all([
+                removeUserDataFromPost(),
+                updateLastSeen(context.params.userId)
+            ])
+        console.log(`succeed to handle bookmark | userId: ${context.params.userId}`)
     } catch (err) {
-        console.log(`failed to count bookmarks | bookmarkId: ${context.params.bookmarkId} | ${err}`)
+        console.log(`failed to handle bookmark | userId: ${context.params.userId} | ${err}`)
     }
+
+    async function addUserDataToPost() {
+        try {
+            const postId: string = context.params.bookmarkId
+            const snapshot = await db.doc(`users/${context.params.userId}`).get()
+            const user = snapshot.data()
+            if (user) {
+                const data = {
+                    name: user.name,
+                    pic: user.pic,
+                    top_topic: user.top_topic,
+                    subscribers: user.subscribers,
+                    timestamp: Timestamp.now()
+                }
+                await db.doc(`posts/${postId}/bookmarks/${context.params.userId}`).set(data, merge)
+            }
+            console.log(`succeed to add user data to post | postId: ${context.params.bookmarkId}`)
+            await countBookmarks()
+        } catch (err) {
+            console.log(`failed to add user data to post | postId: ${context.params.bookmarkId} | ${err}`)
+        }
+    }
+
+    async function removeUserDataFromPost() {
+        try {
+            const postId: string = context.params.bookmarkId
+            await db.doc(`posts/${postId}/bookmarks/${context.params.userId}`).delete()
+            console.log(`succeed to remove user data from post | postId: ${context.params.bookmarkId}`)
+            await countBookmarks()
+        } catch (err) {
+            console.log(`failed to remove user data from post | postId: ${context.params.bookmarkId} | ${err}`)
+        }
+    }
+
+    async function countBookmarks() {
+        try {
+            const postId: string = context.params.bookmarkId
+            const snapshot = await db.collection(`posts/${postId}/bookmarks`).get()
+            await db.doc(`posts/${postId}`).set({ bookmarks: snapshot.size }, merge)
+            console.log(`succeed to count bookmarks | postId: ${context.params.bookmarkId}`)
+            await calculatePostScore(postId)
+        } catch (err) {
+            console.log(`failed to count bookmarks | postId: ${context.params.bookmarkId} | ${err}`)
+        }
+    }
+
 }
 
-export async function countPostReadings(context: functions.EventContext, reading: FirebaseFirestore.DocumentData) {
+export async function handleReading(context: functions.EventContext, snapshot: FirebaseFirestore.DocumentSnapshot) {
     try {
-        const postId: string = reading.post.id
-        const db = admin.firestore()
-        const snapshot = await db.collection('readings').where('post.id', '==', postId).get()
-        await db.doc(`posts/${postId}`).set({ readings: snapshot.size }, { merge: true })
-        console.log(`succeed to count readings for post | readingId: ${context.params.readingId}`)
         await Promise.all([
-            calculatePostScore(postId),
-            updateLastSeen(reading.user.id),
-            countTopicReadings(context, reading)
+            updateLastSeen(context.params.userId)
         ])
     } catch (err) {
         console.log(`failed to count readings for post | readingId: ${context.params.readingId} | ${err}`)
     }
+
+    async function countReadings() {
+        try {
+            const postId: string = context.params.readingId
+            const snap = await db.collection(`posts/${postId}/readings`).get()
+            await db.doc(`posts/${postId}`).set({ readings: snap.size }, merge)
+            console.log(`succeed to count readings | postId: ${context.params.readingId}`)
+            await Promise.all([
+                calculatePostScore(postId),
+                countTopicReadings(snapshot)
+            ])
+        } catch (err) {
+            console.log(`failed to count readings | postId: ${context.params.readingId} | ${err}`)
+        }
+    }
+
 }
 
 export async function countShares(context: functions.EventContext, share: FirebaseFirestore.DocumentData) {

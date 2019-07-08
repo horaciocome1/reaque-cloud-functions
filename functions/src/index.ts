@@ -13,18 +13,10 @@ export const onSubscriptionDeleted = functions.firestore.document('users/{userId
 )
 
 export const onBookmarkCreated = functions.firestore.document('users/{userId}/bookmarks/{bookmarkId}').onCreate(
-    async (snapshot, context) => {
-        const bookmark = snapshot.data()
-        if (bookmark) 
-            await utils.countBookmarks(context, bookmark)
-    }
+    async (_, context) => await utils.handleBookmark(context, true)
 )
-export const onBookmarkDeleted = functions.firestore.document('bookmarks/{bookmarkId}').onDelete(
-    async (snapshot, context) => {
-        const bookmark = snapshot.data()
-        if (bookmark)
-            await utils.countBookmarks(context, bookmark)
-    }
+export const onBookmarkDeleted = functions.firestore.document('users/{userId}/bookmarks/{bookmarkId}').onDelete(
+    async (_, context) => await utils.handleBookmark(context, true)
 )
 
 export const onReadingCreated = functions.firestore.document('readings/{readingId}').onCreate(
