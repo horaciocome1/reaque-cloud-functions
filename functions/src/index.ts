@@ -4,30 +4,12 @@ import * as utils from './utils'
 
 admin.initializeApp()
 
-export const onSubscriptionCreated = functions.firestore.document('subscriptions/{subscriptionId}').onCreate(
-    async (snapshot, context) => {
-        const subscription = snapshot.data()
-        if (subscription) {
-            const promises = [
-                utils.countSubscribers(context, subscription),
-                utils.countSubscriptions(context, subscription)
-            ]
-            await Promise.all(promises)
-        }
-    }
+export const onSubscriptionCreated = functions.firestore.document('users/{userId}/subscriptions/{subscriptionId}').onCreate(
+    async (snapshot, context) => await utils.handleSubscription(context, snapshot, true)
 )
 
-export const onSubscriptionDeleted = functions.firestore.document('subscriptions/{subscriptionId}').onDelete(
-    async (snapshot, context) => {
-        const subscription = snapshot.data()
-        if (subscription) {
-            const promises = [
-                utils.countSubscribers(context, subscription),
-                utils.countSubscriptions(context, subscription)
-            ]
-            await Promise.all(promises)
-        }
-    }
+export const onSubscriptionDeleted = functions.firestore.document('users/{userId}/subscriptions/{subscriptionId}').onDelete(
+    async (snapshot, context) => await utils.handleSubscription(context, snapshot, false)
 )
 
 export const onBookmarkCreated = functions.firestore.document('bookmarks/{bookmarkId}').onCreate(

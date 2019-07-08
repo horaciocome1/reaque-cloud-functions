@@ -2,30 +2,67 @@ import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { Timestamp, DocumentReference} from '@google-cloud/firestore'
 
-export async function countSubscribers(context: functions.EventContext, subscription: FirebaseFirestore.DocumentData) {
-    try {
-        const userId: string = subscription.user.id
-        const db = admin.firestore()
-        const snapshot = await db.collection('subscriptions').where('user.id', '==', userId).get()
-        await db.doc(`users/${userId}`).set({ subscribers: snapshot.size }, { merge: true })
-        console.log(`succeed to count subscribers | subscriptionId: ${context.params.subscriptionId}`)
-        await updateLastSeen(userId)
-    } catch (err) {
-        console.log(`failed to count subscribers | subscriptionId: ${context.params.subscriptionId} | ${err}`)
-    }
-}
+const merge = { merge: true }
 
-export async function countSubscriptions(context: functions.EventContext, subscription: FirebaseFirestore.DocumentData) {
-    try {
-        const subscriberId: string = subscription.subscriber.id
-        const db = admin.firestore()
-        const snapshot = await db.collection('subscriptions').where('subscriber.id', '==', subscriberId).get()
-        await db.doc(`users/${subscriberId}`).set({ subscriptions: snapshot.size }, { merge: true })
-        console.log(`succeed to count subscriptions | subscriptionId: ${context.params.subscriptionId}`)
-        await updateLastSeen(subscriberId)
-    } catch (err) {
-        console.log(`failed to count subscriptions | subscriptionId: ${context.params.subscriptionId} | ${err}`)
+export async function handleSubscription(context: functions.EventContext, snapshot: FirebaseFirestore.DocumentSnapshot, create: boolean) {
+    const db = admin.firestore()
+    if (create === true) {
+        await Promise.all([
+            countSubscriptions(),
+            addSubscriberDataToSubscribedUser()
+        ])
+    } else {
+        await Promise.all([
+            countSubscriptions(),
+            countSubscribers()
+        ])
     }
+
+    async function countSubscriptions() {
+        try {
+            const userId = context.params.userId
+            const subscriptionsSnapshot = await db.collection(`users/${userId}/subscriptions`).get()
+            await db.doc(`users/${userId}`).set({ subscriptions: subscriptionsSnapshot.size }, merge)
+            console.log(`succeed to count subscriptions | userId: ${context.params.userId}`)
+            await updateLastSeen(userId)
+        } catch (err) {
+            console.log(`failed to count subscriptions | userId: ${context.params.userId} | ${err}`)
+        }
+    }
+
+    async function addSubscriberDataToSubscribedUser() {
+        try {
+            const subscribedId = snapshot.id
+            const subscriberSnapshot = await db.doc(`users/${context.params.userId}`).get()
+            const subscriber = subscriberSnapshot.data()
+            if (subscriber) {
+                const data = {
+                    name: subscriber.name,
+                    pic: subscriber.pic,
+                    subscribers: subscriber.subscribers,
+                    top_topic: subscriber.top_topic
+                }
+                await db.doc(`users/${subscribedId}/subscribers/${context.params.userId}`).set(data, merge)
+            }
+            console.log(`succeed to add subscriber data to subscribed user | userId: ${snapshot.id}`)
+            await countSubscribers()
+        } catch (err) {
+            console.log(`failed to add subscriber data to subscribed user | userId: ${snapshot.id} | ${err}`)
+        }
+    }
+
+    async function countSubscribers() {
+        try {
+            const userId = snapshot.id
+            const subscribersSnapshot = await db.doc(`users/${userId}`).collection('subscribers').get()
+            await db.doc(`users/${userId}`).set({ subscribers: subscribersSnapshot.size }, merge)
+            console.log(`succeed to count subscribers | userId: ${snapshot.id}`)
+            await updateLastSeen(userId)
+        } catch (err) {
+            console.log(`failed to count subscribers | userId: ${snapshot.id} | ${err}`)
+        }
+    }
+
 }
 
 export async function countBookmarks(context: functions.EventContext, bookmark: FirebaseFirestore.DocumentData) {
