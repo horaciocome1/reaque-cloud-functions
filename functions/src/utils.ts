@@ -150,7 +150,7 @@ export async function handleBookmark(context: functions.EventContext, create: bo
 
 }
 
-export async function handleReading(context: functions.EventContext, snapshot: FirebaseFirestore.DocumentSnapshot) {
+export async function handleReading(context: functions.EventContext, reading: FirebaseFirestore.DocumentData) {
     try {
         await Promise.all([
             addUserDataToPost(),
@@ -191,7 +191,7 @@ export async function handleReading(context: functions.EventContext, snapshot: F
             console.log(`succeed to count readings | postId: ${context.params.readingId}`)
             await Promise.all([
                 calculatePostScore(postId),
-                countTopicReadings(snapshot)
+                countTopicReadings(reading.topic.id)
             ])
         } catch (err) {
             console.log(`failed to count readings | postId: ${context.params.readingId} | ${err}`)
@@ -249,9 +249,13 @@ export async function handleShare(context: functions.EventContext) {
 
 export async function calculateRating(context: functions.EventContext, rating: FirebaseFirestore.DocumentData) {
     try {
-        const postId: string = rating.post.id
-        const db = admin.firestore()
-        const snapshot = await db.collection('ratings').where('post.id', '==', postId).get()
+        await Promise.all([
+            addUserDataToPost(),
+            updateLastSeen(context.params.userId)
+        ])
+
+        const postId: string = context.params.ratingId
+        const snapshot = await db.collection(`posts/${postId}/ratings`).get()
         let sum = 0
         snapshot.forEach(doc => {
             const data = doc.data()
@@ -262,19 +266,39 @@ export async function calculateRating(context: functions.EventContext, rating: F
         })
         const postRating = sum / snapshot.size
         const roundedRating = round(postRating, 1) // 1 decimal, uma casa decimal
-        await db.doc(`posts/${postId}`).set({ rating: roundedRating }, { merge: true })
-        console.log(`succeed to update rating | ratingId: ${context.params.ratingId}`)
-        await Promise.all([
-            calculatePostScore(postId),
-            updateLastSeen(rating.user.id)
-        ])
+        await db.doc(`posts/${postId}`).set({ rating: roundedRating }, merge)
+        console.log(`succeed to calculate rating | ratingId: ${context.params.ratingId}`)
+        await calculatePostScore(postId)
     } catch (err) {
-        console.log(`failed to update rating | ratingId: ${context.params.ratingId} | ${err}`)
+        console.log(`failed to calculate rating | ratingId: ${context.params.ratingId} | ${err}`)
     }
 
     function round(value: number, precision: number) {
         const multiplier = Math.pow(10, precision || 0);
         return Math.round(value * multiplier) / multiplier;
+    }
+
+    async function addUserDataToPost() {
+        try {
+            const postId: string = context.params.ratingId
+            const snapshot = await db.doc(`users/${context.params.userId}`).get()
+            const user = snapshot.data()
+            if (user) {
+                const data = {
+                    name: user.name,
+                    pic: user.pic,
+                    top_topic: user.top_topic,
+                    subscribers: user.subscribers,
+                    timestamp: Timestamp.now(),
+                    value: rating.value,
+                    message: rating.message
+                }
+                await db.doc(`posts/${postId}/ratings/${context.params.userId}`).set(data, merge)
+            }
+            console.log(`succeed to add user data to post | postId: ${context.params.shareId}`)
+        } catch (err) {
+            console.log(`failed to add user data to post | postId: ${context.params.shareId} | ${err}`)
+        }
     }
 
 }
@@ -502,18 +526,14 @@ async function countUserPosts(context: functions.EventContext, post: FirebaseFir
     }
 }
 
-async function countTopicReadings(snapshot: FirebaseFirestore.DocumentSnapshot) {
+async function countTopicReadings(topicId: string) {
     try {
-        const post = snapshot.data()
-        if (post) {
-            const topicId = post.topic.id
-            const readingsSnapshot = await db.collectionGroup('readings').where('topic.id', '==', topicId).get()
+        const readingsSnapshot = await db.collectionGroup('readings').where('topic.id', '==', topicId).get()
             await db.doc(`topics/${topicId}`).set({ readings: readingsSnapshot.size }, { merge: true })
-            console.log(`succeed to count readings for topic | readingId: ${snapshot.id}`)
+            console.log(`succeed to count readings for topic | readingId: ${topicId}`)
             await calculateTopicScore(topicId)
-        }
     } catch (err) {
-        console.log(`failed to count readings for topic | readingId: ${snapshot.id} | ${err}`)
+        console.log(`failed to count readings for topic | readingId: ${topicId} | ${err}`)
     }
     
 }
