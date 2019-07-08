@@ -156,8 +156,58 @@ export async function handleReading(context: functions.EventContext, snapshot: F
             addUserDataToPost(),
             updateLastSeen(context.params.userId)
         ])
+        console.log(`succeed to handle reading | readingId: ${context.params.readingId}`)
     } catch (err) {
-        console.log(`failed to count readings for post | readingId: ${context.params.readingId} | ${err}`)
+        console.log(`failed to handle reading | readingId: ${context.params.readingId} | ${err}`)
+    }
+
+    async function addUserDataToPost() {
+        try {
+            const postId: string = context.params.readingId
+            const snap = await db.doc(`users/${context.params.userId}`).get()
+            const user = snap.data()
+            if (user) {
+                const data = {
+                    name: user.name,
+                    pic: user.pic,
+                    top_topic: user.top_topic,
+                    subscribers: user.subscribers,
+                    timestamp: Timestamp.now()
+                }
+                await db.doc(`posts/${postId}/readings/${context.params.userId}`).set(data, merge)
+            }
+            console.log(`succeed to add user data to post | postId: ${context.params.readingId}`)
+            await countReadings()
+        } catch (err) {
+            console.log(`failed to add user data to post | postId: ${context.params.readingId} | ${err}`)
+        }
+    }
+
+    async function countReadings() {
+        try {
+            const postId: string = context.params.readingId
+            const snap = await db.collection(`posts/${postId}/readings`).get()
+            await db.doc(`posts/${postId}`).set({ readings: snap.size }, merge)
+            console.log(`succeed to count readings | postId: ${context.params.readingId}`)
+            await Promise.all([
+                calculatePostScore(postId),
+                countTopicReadings(snapshot)
+            ])
+        } catch (err) {
+            console.log(`failed to count readings | postId: ${context.params.readingId} | ${err}`)
+        }
+    }
+
+}
+
+export async function handleShare(context: functions.EventContext) {
+    try {
+        await Promise.all([
+            addUserDataToPost(),
+            updateLastSeen(context.params.userId)
+        ])
+    } catch (err) {
+        console.log(`failed to handle shares for post | readingId: ${context.params.readingId} | ${err}`)
     }
 
     async function addUserDataToPost() {
