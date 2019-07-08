@@ -23,12 +23,8 @@ export const onReadingCreated = functions.firestore.document('users/{userId}/rea
     async (snapshot, context) => await utils.handleReading(context, snapshot)
 )
 
-export const onShareCreated = functions.firestore.document('shares/{shareId}').onCreate(
-    async (snapshot, context) => {
-        const share = snapshot.data()
-        if (share)
-            await utils.countShares(context, share)
-    }
+export const onShareCreated = functions.firestore.document('users/{userId}/shares/{shareId}').onCreate(
+    async (_, context) => await utils.handleShare(context)
 )
 
 export const onRatingCreated = functions.firestore.document('ratings/{ratingId}').onCreate(

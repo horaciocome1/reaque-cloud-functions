@@ -206,15 +206,16 @@ export async function handleShare(context: functions.EventContext) {
             addUserDataToPost(),
             updateLastSeen(context.params.userId)
         ])
+        console.log(`succeed to handle share | shareId: ${context.params.shareId}`)
     } catch (err) {
-        console.log(`failed to handle shares for post | readingId: ${context.params.readingId} | ${err}`)
+        console.log(`failed to handle share | shareId: ${context.params.shareId} | ${err}`)
     }
 
     async function addUserDataToPost() {
         try {
-            const postId: string = context.params.readingId
-            const snap = await db.doc(`users/${context.params.userId}`).get()
-            const user = snap.data()
+            const postId: string = context.params.shareId
+            const snapshot = await db.doc(`users/${context.params.userId}`).get()
+            const user = snapshot.data()
             if (user) {
                 const data = {
                     name: user.name,
@@ -223,46 +224,27 @@ export async function handleShare(context: functions.EventContext) {
                     subscribers: user.subscribers,
                     timestamp: Timestamp.now()
                 }
-                await db.doc(`posts/${postId}/readings/${context.params.userId}`).set(data, merge)
+                await db.doc(`posts/${postId}/shares/${context.params.userId}`).set(data, merge)
             }
-            console.log(`succeed to add user data to post | postId: ${context.params.readingId}`)
-            await countReadings()
+            console.log(`succeed to add user data to post | postId: ${context.params.shareId}`)
+            await countShares()
         } catch (err) {
-            console.log(`failed to add user data to post | postId: ${context.params.readingId} | ${err}`)
+            console.log(`failed to add user data to post | postId: ${context.params.shareId} | ${err}`)
         }
     }
 
-    async function countReadings() {
+    async function countShares() {
         try {
-            const postId: string = context.params.readingId
-            const snap = await db.collection(`posts/${postId}/readings`).get()
-            await db.doc(`posts/${postId}`).set({ readings: snap.size }, merge)
-            console.log(`succeed to count readings | postId: ${context.params.readingId}`)
-            await Promise.all([
-                calculatePostScore(postId),
-                countTopicReadings(snapshot)
-            ])
+            const postId: string = context.params.shareId
+            const snapshot = await db.collection(`posts/${postId}/shares`).get()
+            await db.doc(`posts/${postId}`).set({ shares: snapshot.size }, merge)
+            console.log(`succeed to count shares | postId: ${context.params.shareId}`)
+            await calculatePostScore(postId)
         } catch (err) {
-            console.log(`failed to count readings | postId: ${context.params.readingId} | ${err}`)
+            console.log(`failed to count shares | postId: ${context.params.shareId} | ${err}`)
         }
     }
 
-}
-
-export async function countShares(context: functions.EventContext, share: FirebaseFirestore.DocumentData) {
-    try {
-        const postId: string = share.post.id
-        const db = admin.firestore()
-        const snapshot = await db.collection('shares').where('post.id', '==', postId).get()
-        await db.doc(`posts/${postId}`).set({ shares: snapshot.size }, { merge: true })
-        console.log(`succeed to count shares | shareId: ${context.params.shareId}`)
-        await Promise.all([
-            calculatePostScore(postId),
-            updateLastSeen(share.user.id)
-        ])
-    } catch (err) {
-        console.log(`failed to count shares | shareId: ${context.params.shareId} | ${err}`)
-    }
 }
 
 export async function calculateRating(context: functions.EventContext, rating: FirebaseFirestore.DocumentData) {
