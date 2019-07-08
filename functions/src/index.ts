@@ -20,10 +20,7 @@ export const onBookmarkDeleted = functions.firestore.document('users/{userId}/bo
 )
 
 export const onReadingCreated = functions.firestore.document('readings/{readingId}').onCreate(
-    async (snapshot, context) => {
-        const reading = snapshot.data()
-        if (reading) await utils.countPostReadings(context, reading)
-    }
+    async (snapshot, context) => await utils.handleReading(context, snapshot)
 )
 
 export const onShareCreated = functions.firestore.document('shares/{shareId}').onCreate(

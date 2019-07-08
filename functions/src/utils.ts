@@ -153,10 +153,33 @@ export async function handleBookmark(context: functions.EventContext, create: bo
 export async function handleReading(context: functions.EventContext, snapshot: FirebaseFirestore.DocumentSnapshot) {
     try {
         await Promise.all([
+            addUserDataToPost(),
             updateLastSeen(context.params.userId)
         ])
     } catch (err) {
         console.log(`failed to count readings for post | readingId: ${context.params.readingId} | ${err}`)
+    }
+
+    async function addUserDataToPost() {
+        try {
+            const postId: string = context.params.readingId
+            const snap = await db.doc(`users/${context.params.userId}`).get()
+            const user = snap.data()
+            if (user) {
+                const data = {
+                    name: user.name,
+                    pic: user.pic,
+                    top_topic: user.top_topic,
+                    subscribers: user.subscribers,
+                    timestamp: Timestamp.now()
+                }
+                await db.doc(`posts/${postId}/readings/${context.params.userId}`).set(data, merge)
+            }
+            console.log(`succeed to add user data to post | postId: ${context.params.readingId}`)
+            await countReadings()
+        } catch (err) {
+            console.log(`failed to add user data to post | postId: ${context.params.readingId} | ${err}`)
+        }
     }
 
     async function countReadings() {
@@ -447,23 +470,24 @@ async function countUserPosts(context: functions.EventContext, post: FirebaseFir
     }
 }
 
-async function countTopicReadings(context: functions.EventContext, reading: FirebaseFirestore.DocumentData) {
+async function countTopicReadings(snapshot: FirebaseFirestore.DocumentSnapshot) {
     try {
-        const topicId: string = reading.post.topic.id
-        const db = admin.firestore()
-        const snapshot = await db.collection('readings').where('post.topic.id', '==', topicId).get()
-        await db.doc(`topics/${topicId}`).set({ readings: snapshot.size }, { merge: true })
-        console.log(`succeed to count readings for topic | readingId: ${context.params.readingId}`)
-        await calculateTopicScore(reading.post.id)
+        const post = snapshot.data()
+        if (post) {
+            const topicId = post.topic.id
+            const readingsSnapshot = await db.collectionGroup('readings').where('topic.id', '==', topicId).get()
+            await db.doc(`topics/${topicId}`).set({ readings: readingsSnapshot.size }, { merge: true })
+            console.log(`succeed to count readings for topic | readingId: ${snapshot.id}`)
+            await calculateTopicScore(topicId)
+        }
     } catch (err) {
-        console.log(`failed to count readings for topic | readingId: ${context.params.readingId} | ${err}`)
+        console.log(`failed to count readings for topic | readingId: ${snapshot.id} | ${err}`)
     }
     
 }
 
 async function calculatePostScore(postId: string) {
     try {
-        const db = admin.firestore()
         const snapshot = await db.doc(`posts/${postId}`).get()
         const post = snapshot.data()
         if (post) {
@@ -474,9 +498,9 @@ async function calculatePostScore(postId: string) {
                 + getFactor(20, post.rating)
                 - getFactor(50, timestamp.toMillis())
             await db.doc(`posts/${postId}`).set({score: score}, {merge: true})
-            console.log(`succeed to calculate post's score`)
-            await propagatePostScore()
         }
+        console.log(`succeed to calculate post's score`)
+        await propagatePostScore()
     } catch (err) {
         console.log(`failed to calculate post's score | ${err}`)
     }
@@ -489,7 +513,6 @@ async function calculatePostScore(postId: string) {
 
     async function propagatePostScore() {
         try {
-            const db = admin.firestore()
             const postSnapshot = await db.doc(`posts/${postId}`).get()
             const post = postSnapshot.data()
             if (post) {
@@ -512,7 +535,6 @@ async function calculatePostScore(postId: string) {
 
 async function calculateTopicScore(postId: string) {
     try {
-        const db = admin.firestore()
         const snapshot = await getTopic()
         if (snapshot !== null) {
             const topic = snapshot.data()
@@ -535,7 +557,6 @@ async function calculateTopicScore(postId: string) {
     }
 
     async function getTopic() {
-        const db = admin.firestore()
         const postSnapshot = await db.doc(`posts/${postId}`).get()
         const post = postSnapshot.data()
         if (post)
@@ -553,7 +574,6 @@ async function updateLastSeen(userId: string) {
             },
             timestamp: Timestamp.now()
         }
-        const db = admin.firestore()
         await Promise.all([
             db.doc(`sessions/${userId}`).set(data, { merge: true }),
             db.doc(`users/${userId}`).set({ active: true }, { merge: true})
@@ -570,7 +590,6 @@ async function deleteFeedEntriesForInactiveUser() {
         // it has two levels of promises L1 and L2
         // when i execute in parallel promises from level 1
         // it is actually executing in parallel every single promise of level 2
-        const db = admin.firestore()
         const snapshot = await db.collection('users').orderBy('active').get()
         const promisesL1: (() => Promise<FirebaseFirestore.WriteResult[]>)[] = []
         snapshot.forEach(docL1 => {
@@ -596,7 +615,6 @@ async function deleteFeedEntriesForInactiveUser() {
 
 async function propagateUserUpdates(userId: string) {
     try {
-        const db = admin.firestore()
         const snapshot = await db.doc(`users/${userId}`).get()
         const user = snapshot.data()
         if (user) {
@@ -606,13 +624,13 @@ async function propagateUserUpdates(userId: string) {
                 top_topic: user.top_topic
             }
             await Promise.all([
-                update(db, data, 'subscriptions'),
-                update(db, data, 'subscribers'),
-                update(db, data, 'users'),
-                update(db, data, 'readings'),
-                update(db, data, 'bookmarks'),
-                update(db, data, 'ratings'),
-                update(db, data, 'shares'),
+                update(data, 'subscriptions'),
+                update(data, 'subscribers'),
+                update(data, 'users'),
+                update(data, 'readings'),
+                update(data, 'bookmarks'),
+                update(data, 'ratings'),
+                update(data, 'shares'),
             ])
         }
         console.log(`succeed to propagate user's updates | userId: ${userId}`)
@@ -620,7 +638,7 @@ async function propagateUserUpdates(userId: string) {
         console.log(`failed to propagate user's updates | userId: ${userId} | ${err}`)
     }
 
-    async function update(db: FirebaseFirestore.Firestore, data: any, collectionName: string) {
+    async function update(data: any, collectionName: string) {
         try {
             const snapshot = await db.collectionGroup(collectionName).get()
             const promises: Promise<FirebaseFirestore.WriteResult>[] = []
