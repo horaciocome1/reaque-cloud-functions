@@ -2,20 +2,31 @@ import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { Timestamp, DocumentReference} from '@google-cloud/firestore'
 
+const db = admin.firestore()
+
 const merge = { merge: true }
 
-export async function handleSubscription(context: functions.EventContext, snapshot: FirebaseFirestore.DocumentSnapshot, create: boolean) {
-    const db = admin.firestore()
-    if (create === true) {
+export async function handleSubscription(context: functions.EventContext, create: boolean) {
+    try {
+        if (create === true) {
+            await Promise.all([
+                countSubscriptions(),
+                updateLastSeen(context.params.userId),
+                addSubscriberDataToSubscribedUser()
+            ])
+        } else {
+            await Promise.all([
+                countSubscriptions(),
+                updateLastSeen(context.params.userId),
+                countSubscribers()
+            ])
+        }
         await Promise.all([
-            countSubscriptions(),
-            addSubscriberDataToSubscribedUser()
+            propagateUserUpdates(context.params.userId),
+            propagateUserUpdates(context.params.subscriptionId)
         ])
-    } else {
-        await Promise.all([
-            countSubscriptions(),
-            countSubscribers()
-        ])
+    } catch (err) {
+        console.log(`failed to count subscriptions | userId: ${context.params.userId} | ${err}`)
     }
 
     async function countSubscriptions() {
@@ -24,7 +35,6 @@ export async function handleSubscription(context: functions.EventContext, snapsh
             const subscriptionsSnapshot = await db.collection(`users/${userId}/subscriptions`).get()
             await db.doc(`users/${userId}`).set({ subscriptions: subscriptionsSnapshot.size }, merge)
             console.log(`succeed to count subscriptions | userId: ${context.params.userId}`)
-            await updateLastSeen(userId)
         } catch (err) {
             console.log(`failed to count subscriptions | userId: ${context.params.userId} | ${err}`)
         }
@@ -32,7 +42,7 @@ export async function handleSubscription(context: functions.EventContext, snapsh
 
     async function addSubscriberDataToSubscribedUser() {
         try {
-            const subscribedId = snapshot.id
+            const subscribedId = context.params.subscriptionId
             const subscriberSnapshot = await db.doc(`users/${context.params.userId}`).get()
             const subscriber = subscriberSnapshot.data()
             if (subscriber) {
@@ -44,24 +54,27 @@ export async function handleSubscription(context: functions.EventContext, snapsh
                 }
                 await db.doc(`users/${subscribedId}/subscribers/${context.params.userId}`).set(data, merge)
             }
-            console.log(`succeed to add subscriber data to subscribed user | userId: ${snapshot.id}`)
+            console.log(`succeed to add subscriber data to subscribed user | userId: ${context.params.subscriptionId}`)
             await countSubscribers()
         } catch (err) {
-            console.log(`failed to add subscriber data to subscribed user | userId: ${snapshot.id} | ${err}`)
+            console.log(`failed to add subscriber data to subscribed user | userId: ${context.params.subscriptionId} | ${err}`)
         }
     }
 
     async function countSubscribers() {
         try {
-            const userId = snapshot.id
+            const userId = context.params.subscriptionId
             const subscribersSnapshot = await db.doc(`users/${userId}`).collection('subscribers').get()
             await db.doc(`users/${userId}`).set({ subscribers: subscribersSnapshot.size }, merge)
-            console.log(`succeed to count subscribers | userId: ${snapshot.id}`)
-            await updateLastSeen(userId)
+            console.log(`succeed to count subscribers | userId: ${context.params.subscriptionId}`)
         } catch (err) {
-            console.log(`failed to count subscribers | userId: ${snapshot.id} | ${err}`)
+            console.log(`failed to count subscribers | userId: ${context.params.subscriptionId} | ${err}`)
         }
     }
+
+}
+
+export async function handleBookmark(context: functions.EventContext, snapshot: FirebaseFirestore.DocumentSnapshot, create: boolean) {
 
 }
 
@@ -514,4 +527,49 @@ async function deleteFeedEntriesForInactiveUser() {
     } catch (err) {
         console.log(`failed to delete feed entries for each inactive user | ${err}`)
     }
+}
+
+async function propagateUserUpdates(userId: string) {
+    try {
+        const db = admin.firestore()
+        const snapshot = await db.doc(`users/${userId}`).get()
+        const user = snapshot.data()
+        if (user) {
+            const data = {
+                subscribers: user.subscribers,
+                subscriptions: user.subscriptions,
+                top_topic: user.top_topic
+            }
+            await Promise.all([
+                update(db, data, 'subscriptions'),
+                update(db, data, 'subscribers'),
+                update(db, data, 'users'),
+                update(db, data, 'readings'),
+                update(db, data, 'bookmarks'),
+                update(db, data, 'ratings'),
+                update(db, data, 'shares'),
+            ])
+        }
+        console.log(`succeed to propagate user's updates | userId: ${userId}`)
+    } catch (err) {
+        console.log(`failed to propagate user's updates | userId: ${userId} | ${err}`)
+    }
+
+    async function update(db: FirebaseFirestore.Firestore, data: any, collectionName: string) {
+        try {
+            const snapshot = await db.collectionGroup(collectionName).get()
+            const promises: Promise<FirebaseFirestore.WriteResult>[] = []
+            snapshot.forEach(doc => {
+                if (doc.id === userId) {
+                    const promise = doc.ref.set(data, merge)
+                    promises.push(promise)
+                }
+            })
+            await Promise.all(promises)
+            console.log(`succeed to update users within collections | collectionName: ${collectionName}`)
+        } catch (err) {
+            console.log(`failed to update users within collections | collectionName: ${collectionName} | ${err}`)
+        }
+    }
+
 }
