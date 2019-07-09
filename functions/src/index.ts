@@ -15,7 +15,7 @@ export const onBookmarkCreated = functions.firestore.document('users/{userId}/bo
 )
 
 export const onBookmarkDeleted = functions.firestore.document('users/{userId}/bookmarks/{bookmarkId}').onDelete(
-    async (_, context) => await utils.handleBookmark(context, true)
+    async (_, context) => await utils.handleBookmark(context, false)
 )
 
 export const onReadingCreated = functions.firestore.document('users/{userId}/readings/{readingId}').onCreate(

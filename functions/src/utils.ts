@@ -132,10 +132,10 @@ export async function handleBookmark(context: functions.EventContext, create: bo
                     await t.set(ref, data)
                 }
             })
-            console.log(`succeed to add user data to post | postId: ${context.params.bookmarkId}`)
+            console.log(`succeed to add user's data to post | postId: ${context.params.bookmarkId}`)
             await updateBookmarks()
         } catch (err) {
-            console.log(`failed to add user data to post | postId: ${context.params.bookmarkId} | ${err}`)
+            console.log(`failed to add user's data to post | postId: ${context.params.bookmarkId} | ${err}`)
         }
     }
 
@@ -199,10 +199,10 @@ export async function handleReading(context: functions.EventContext, reading: Fi
                     await t.set(ref, data)
                 }
             })
-            console.log(`succeed to add user data to post | postId: ${context.params.readingId}`)
+            console.log(`succeed to add user's data to post | postId: ${context.params.readingId}`)
             await updateReadings()
         } catch (err) {
-            console.log(`failed to add user data to post | postId: ${context.params.readingId} | ${err}`)
+            console.log(`failed to add user's data to post | postId: ${context.params.readingId} | ${err}`)
         }
 
         async function updateReadings() {
@@ -270,14 +270,14 @@ export async function handleShare(context: functions.EventContext) {
                         top_topic: user.top_topic,
                         timestamp: Timestamp.now()
                     }
-                    ref = db.doc(`posts/${context.params.readingId}/shares/${context.params.userId}`)
+                    ref = db.doc(`posts/${context.params.shareId}/shares/${context.params.userId}`)
                     await t.set(ref, data)
                 }
             })
-            console.log(`succeed to add user data to post | postId: ${context.params.shareId}`)
+            console.log(`succeed to add user's data to post | postId: ${context.params.shareId}`)
             await updateShares()
         } catch (err) {
-            console.log(`failed to add user data to post | postId: ${context.params.shareId} | ${err}`)
+            console.log(`failed to add user's data to post | postId: ${context.params.shareId} | ${err}`)
         }
 
         async function updateShares() {
@@ -346,16 +346,15 @@ export async function calculateRating(context: functions.EventContext, rating: F
                         subscribers: user.subscribers,
                         top_topic: user.top_topic,
                         timestamp: Timestamp.now(),
-                        value: rating.value,
-                        message: rating.message
+                        value: rating.value
                     }
-                    ref = db.doc(`posts/${context.params.readingId}/ratings/${context.params.userId}`)
+                    ref = db.doc(`posts/${context.params.ratingId}/ratings/${context.params.userId}`)
                     await t.set(ref, data)
                 }
             })
-            console.log(`succeed to add user data to post | postId: ${context.params.shareId}`)
+            console.log(`succeed to add user's data to post | postId: ${context.params.ratingId}`)
         } catch (err) {
-            console.log(`failed to add user data to post | postId: ${context.params.shareId} | ${err}`)
+            console.log(`failed to add user's data to post | postId: ${context.params.ratingId} | ${err}`)
         }
     }
 
@@ -419,7 +418,7 @@ export async function initializePost(context: functions.EventContext, post: Fire
             console.log(`succeed add post data to its topic's subcollection | postId: ${context.params.postId}`)
             await calculateUserTopTopic()
         } catch (err) {
-            console.log(`failed to add post data to its tipic's subcollection | postId: ${context.params.postId} | ${err}`)
+            console.log(`failed to add post data to its topic's subcollection | postId: ${context.params.postId} | ${err}`)
         }
 
         async function calculateUserTopTopic() {
@@ -725,9 +724,9 @@ async function calculateTopicScore(topicId: string) {
                 await transaction.update(ref, { score: score })
             }
         })
-        console.log(`succeed to calculate topic's score`)
+        console.log(`succeed to calculate topic's score | ${topicId}`)
     } catch (err) {
-        console.log(`failed to calculate topic's score | ${err}`)
+        console.log(`failed to calculate topic's score | ${topicId} | ${err}`)
     }
 
     function getFactor(percent: number, x: number): number {
@@ -765,7 +764,6 @@ async function propagateUserUpdates(userId: string) {
         if (user) {
             const data = {
                 subscribers: user.subscribers,
-                subscriptions: user.subscriptions,
                 top_topic: user.top_topic
             }
             await Promise.all([
