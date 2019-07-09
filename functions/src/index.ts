@@ -1,8 +1,6 @@
 import * as functions from 'firebase-functions'
-import * as admin from 'firebase-admin'
 import * as utils from './utils'
 
-admin.initializeApp()
 
 export const onSubscriptionCreated = functions.firestore.document('users/{userId}/subscriptions/{subscriptionId}').onCreate(
     async (_, context) => await utils.handleSubscription(context, true)
