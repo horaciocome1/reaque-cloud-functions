@@ -595,21 +595,6 @@ export async function initializeUser(user: admin.auth.UserRecord) {
 
 }
 
-export async function updateUser(context: functions.EventContext, request: FirebaseFirestore.DocumentData) {
-    try {
-        const data = {
-            bio: request.bio,
-            address: request.address
-        }
-        await Promise.all([
-            db.doc(`users/${context.params.userId}`).set(data, merge),
-            db.doc(`users/${context.params.userId}/update_requests/${context.params.requestId}`).delete()
-        ])
-        console.log(`succeed to update user's bio and address | userId: ${context.params.userId}`)
-    } catch (err) {
-        console.log(`failed to update user's bio and address | userId: ${context.params.userId} | ${err}`)
-    }
-}
 
 export async function markInactiveUsers() {
     try {
