@@ -57,6 +57,14 @@ export const onTopicCreated = functions.firestore.document('topics/{topicId}').o
     async (_, context) => await utils.initializeTopic(context)
 )
 
+export const onUserUpdateRequestCreated = functions.firestore.document('users/{userId}/update_requests/{requestId}').onCreate(
+    async (snapshot, context) => {
+        const request = snapshot.data()
+        if (request) 
+            await utils.updateUser(context, request)
+    }
+)
+
 export const onAccountCreated = functions.auth.user().onCreate(
     async (user, _) => await utils.initializeUser(user)
 )

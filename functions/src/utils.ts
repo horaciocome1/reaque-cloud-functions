@@ -362,14 +362,6 @@ export async function calculateRating(context: functions.EventContext, rating: F
 
 export async function initializePost(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
     try {
-        const data = {
-            bookmarks: 0,
-            readings: 0,
-            rating: 0,
-            shares: 0,
-            score: 0
-        }
-        await db.doc(`posts/${context.params.postId}`).set(data, merge)
         console.log(`succeed to initialize post | postId: ${context.params.postId}`)
         await Promise.all([
             addPostDataToUser(),
@@ -381,8 +373,11 @@ export async function initializePost(context: functions.EventContext, post: Fire
             createFeedEntryForEachSubscriber(),
             updateLastSeen(post.user.id)
         ])
-        await propagateUserUpdates(post.user.id)
-        await calculateTopicScore(post.topic.id)
+        await Promise.all([
+            propagateUserUpdates(post.user.id),
+            calculateTopicScore(post.topic.id)
+        ])
+        console.log(`succeed to initialize post | postId: ${context.params.postId}`)
     } catch (err) {
         console.log(`failed to initialize post | postId: ${context.params.postId} | ${err}`)
     }
@@ -525,7 +520,7 @@ export async function initializePost(context: functions.EventContext, post: Fire
             const snapshot = await db.collection(`users/${post.user.id}/subscribers`).get()
             const batch = db.batch()
             snapshot.forEach(doc => {
-                const ref = db.doc(`feeds/${doc.id}/posts/${context.params.postId}`)
+                const ref = db.doc(`users/${doc.id}/feed/${context.params.postId}`)
                 batch.set(ref, feedEntry, merge)
             })
             await batch.commit()
@@ -598,6 +593,22 @@ export async function initializeUser(user: admin.auth.UserRecord) {
         }
     }
 
+}
+
+export async function updateUser(context: functions.EventContext, request: FirebaseFirestore.DocumentData) {
+    try {
+        const data = {
+            bio: request.bio,
+            address: request.address
+        }
+        await Promise.all([
+            db.doc(`users/${context.params.userId}`).set(data, merge),
+            db.doc(`users/${context.params.userId}/update_requests/${context.params.requestId}`).delete()
+        ])
+        console.log(`succeed to update user's bio and address | userId: ${context.params.userId}`)
+    } catch (err) {
+        console.log(`failed to update user's bio and address | userId: ${context.params.userId} | ${err}`)
+    }
 }
 
 export async function markInactiveUsers() {
@@ -690,7 +701,8 @@ async function calculatePostScore(postId: string) {
                 update('readings'),
                 update('bookmarks'),
                 update('ratings'),
-                update('shares')
+                update('shares'),
+                update('feed')
             ])
             console.log(`succeed to propagate post's score | ${score}`)
         } catch (err) {
