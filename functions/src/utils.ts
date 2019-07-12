@@ -582,7 +582,7 @@ export async function initializeUser(user: admin.auth.UserRecord) {
                         user: post.user,
                         score: post.score
                     }
-                    const ref = db.doc(`feeds/${user.uid}/posts/${doc.id}`)
+                    const ref = db.doc(`users/${user.uid}/feed/${doc.id}`)
                     batch.set(ref, feedEntry)
                 }
             })
