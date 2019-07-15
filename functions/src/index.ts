@@ -30,17 +30,9 @@ export const onShareCreated = functions.firestore.document('users/{userId}/share
     async (_, context) => await utils.handleShare(context)
 )
 
-export const onRatingCreated = functions.firestore.document('users/{userId}/ratings/{ratingId}').onCreate(
+export const onRatingCreated = functions.firestore.document('users/{userId}/ratings/{ratingId}/requests/{requestId}').onCreate(
     async (snapshot, context) => {
         const rating = snapshot.data()
-        if (rating)
-            await utils.calculateRating(context, rating)
-    }
-)
-
-export const onRatingUpdated = functions.firestore.document('users/{userId}/ratings/{ratingId}').onUpdate(
-    async (snapshot, context) => {
-        const rating = snapshot.after.data()
         if (rating)
             await utils.calculateRating(context, rating)
     }

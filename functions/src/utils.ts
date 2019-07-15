@@ -302,6 +302,7 @@ export async function handleShare(context: functions.EventContext) {
 
 export async function calculateRating(context: functions.EventContext, rating: FirebaseFirestore.DocumentData) {
     try {
+        await db.doc(`/users/${context.params.userId}/ratings/${context.params.ratingId}`).set(rating, merge)
         await Promise.all([
             addUserDataToPost(),
             updateLastSeen(context.params.userId)
@@ -324,6 +325,7 @@ export async function calculateRating(context: functions.EventContext, rating: F
         })
         console.log(`succeed to calculate rating | postId: ${context.params.ratingId}`)
         await calculatePostScore(context.params.ratingId)
+        await db.doc(`/users/${context.params.userId}/ratings/${context.params.ratingId}/requests/${context.params.requestId}`).delete()
     } catch (err) {
         console.log(`failed to calculate rating | postId: ${context.params.ratingId} | ${err}`)
     }
@@ -409,7 +411,7 @@ export async function initializePost(context: functions.EventContext, post: Fire
                 user: post.user,
                 score: 0
             }
-            await db.doc(`topics/${post.usertopic.id}/posts/${postId}`).set(data, merge)
+            await db.doc(`topics/${post.topic.id}/posts/${postId}`).set(data, merge)
             console.log(`succeed add post data to its topic's subcollection | postId: ${context.params.postId}`)
             await calculateUserTopTopic()
         } catch (err) {
@@ -556,7 +558,8 @@ export async function initializeUser(user: admin.auth.UserRecord) {
             since: Timestamp.now(),
             subscribers: 0,
             subscriptions: 0,
-            posts: 0
+            posts: 0,
+            score: 0
         }
         await db.doc(`users/${user.uid}`).set(data, merge)
         console.log(`succeed to initialize user | userId: ${user.uid}`)
@@ -594,7 +597,6 @@ export async function initializeUser(user: admin.auth.UserRecord) {
     }
 
 }
-
 
 export async function markInactiveUsers() {
     try {
@@ -651,6 +653,7 @@ export async function markInactiveUsers() {
 
 async function calculatePostScore(postId: string) {
     try {
+        const promises = []
         let score = 0
         const ref = db.doc(`posts/${postId}`)
         await db.runTransaction(async transaction => {
@@ -658,16 +661,19 @@ async function calculatePostScore(postId: string) {
             const post = snapshot.data()
             if (post) {
                 const timestamp: FirebaseFirestore.Timestamp = post.timestamp
-                score = getFactor(10, post.readings)
-                    + getFactor(10, post.bookmarks)
-                    + getFactor(10, post.shares)
-                    + getFactor(20, post.rating)
-                    - getFactor(50, timestamp.seconds)
+                score = getFactor(90, timestamp.seconds)
+                    - getFactor(4, post.readings)
+                    - getFactor(1, post.bookmarks)
+                    - getFactor(1, post.shares)
+                    - getFactor(4, post.rating) 
                 await transaction.update(ref, { score: score})
+                promises.push(calculateTopicScore(post.topic.id))
+                promises.push(calculateUserScore(post.user.id))
             }
         })
         console.log(`succeed to calculate post's score | postId: ${postId}`)
-        await propagatePostScore(score)
+        promises.push(propagatePostScore(score))
+        await Promise.all(promises)
     } catch (err) {
         console.log(`failed to calculate post's score | postId: ${postId} | ${err}`)
     }
@@ -710,26 +716,35 @@ async function calculatePostScore(postId: string) {
 
 async function calculateTopicScore(topicId: string) {
     try {
-        await db.runTransaction(async transaction => {
-            const ref = db.doc(`topics/${topicId}`)
-            const snapshot = await transaction.get(ref)
-            const topic = snapshot.data()
-            if (topic){
-                const score: number = getFactor(25, topic.posts)
-                    + getFactor(25, topic.users)
-                    + getFactor(50, topic.readings)
-                await transaction.update(ref, { score: score })
-            }
+        const snapshot = await db.collection(`topics/${topicId}/posts`).get()
+        let sum = 0
+        snapshot.forEach(doc => {
+            const post = doc.data()
+            if (post)
+                sum += post.score
         })
+        await db.doc(`topics/${topicId}`).set({ score: sum}, merge)
         console.log(`succeed to calculate topic's score | ${topicId}`)
     } catch (err) {
         console.log(`failed to calculate topic's score | ${topicId} | ${err}`)
     }
 
-    function getFactor(percent: number, x: number): number {
-        if (x !== 0)
-            return (1 - (1 / x)) * (percent / 100)
-        return 0
+}
+
+async function calculateUserScore(userId: string) {
+    try {
+        const snapshot = await db.collection(`users/${userId}/posts`).get()
+        let sum = 0
+        snapshot.forEach(doc => {
+            const post = doc.data()
+            if (post)
+                sum += post.score
+        })
+        await db.doc(`users/${userId}`).set({ score: sum}, merge)
+        console.log(`succeed to calculate user's score | ${userId}`)
+        await propagateUserUpdates(userId)
+    } catch (err) {
+        console.log(`failed to calculate user's score | ${userId} | ${err}`)
     }
 
 }
@@ -761,7 +776,8 @@ async function propagateUserUpdates(userId: string) {
         if (user) {
             const data = {
                 subscribers: user.subscribers,
-                top_topic: user.top_topic
+                top_topic: user.top_topic,
+                score: user.score
             }
             await Promise.all([
                 update(data, 'subscriptions'),
