@@ -2,34 +2,42 @@ import * as functions from 'firebase-functions'
 import * as utils from './utils'
 
 export const onSubscriptionCreated = functions.firestore.document('users/{userId}/subscriptions/{subscriptionId}').onCreate(
-    async (_, context) => await utils.handleSubscription(context, true)
+    async (_, context) => await utils.handleSubscription(context)
 )
 
 export const onSubscriptionDeleted = functions.firestore.document('users/{userId}/subscriptions/{subscriptionId}').onDelete(
-    async (_, context) => await utils.handleSubscription(context, false)
+    async (_, context) => await utils.handleSubscription(context)
 )
 
-export const onBookmarkCreated = functions.firestore.document('users/{userId}/bookmarks/{bookmarkId}').onCreate(
-    async (_, context) => await utils.handleBookmark(context, true)
+export const onBookmarkCreated = functions.firestore.document('posts/{postId}/bookmarks/{userId}').onCreate(
+    async (_, context) => await utils.handleBookmark(context)
 )
 
-export const onBookmarkDeleted = functions.firestore.document('users/{userId}/bookmarks/{bookmarkId}').onDelete(
-    async (_, context) => await utils.handleBookmark(context, false)
+export const onBookmarkDeleted = functions.firestore.document('posts/{postId}/bookmarks/{userId}').onDelete(
+    async (_, context) => await utils.handleBookmark(context)
 )
 
-export const onReadingCreated = functions.firestore.document('users/{userId}/readings/{readingId}').onCreate(
+export const onReadingCreated = functions.firestore.document('posts/{postId}/readings/{userId}').onCreate(
     async (_, context) => await utils.handleReading(context)
 )
 
-export const onShareCreated = functions.firestore.document('users/{userId}/shares/{shareId}').onCreate(
+export const onShareCreated = functions.firestore.document('posts/{postId}/shares/{userId}').onCreate(
     async (_, context) => await utils.handleShare(context)
 )
 
-export const onRatingCreated = functions.firestore.document('users/{userId}/ratings/{ratingId}/requests/{requestId}').onCreate(
+export const onRatingCreated = functions.firestore.document('posts/{postId}/ratings/{userId}').onCreate(
     async (snapshot, context) => {
         const rating = snapshot.data()
         if (rating)
-            await utils.calculateRating(context, rating)
+            await utils.calculateRating(context)
+    }
+)
+
+export const onRatingUpdated = functions.firestore.document('posts/{postId}/ratings/{userId}').onUpdate(
+    async (snapshot, context) => {
+        const rating = snapshot.after.data()
+        if (rating)
+            await utils.calculateRating(context)
     }
 )
 
