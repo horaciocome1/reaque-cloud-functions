@@ -11,9 +11,9 @@ const merge = { merge: true }
 export async function handleSubscription(context: functions.EventContext) {
     await Promise.all([
         updateSubscriptions(),
-        updateSubscribers(),
         updateLastSeen(context.params.userId)
     ])
+    await updateSubscribers()
 
     async function updateSubscriptions() {
         try {
@@ -23,7 +23,6 @@ export async function handleSubscription(context: functions.EventContext) {
                 await t.update(ref, { subscriptions: snapshot.size })
             })
             console.log(`succeed to update subscriptions | userId: ${context.params.userId}`)
-            await propagateUserUpdates(context.params.userId)
         } catch (err) {
             console.log(`failed to update subscriptions | userId: ${context.params.userId} | ${err}`)
         }
@@ -364,11 +363,11 @@ async function calculatePostScore(postId: string) {
             const post = snapshot.data()
             if (post) {
                 const timestamp: FirebaseFirestore.Timestamp = post.timestamp
-                score = getFactor(60, timestamp.seconds)
-                    + getFactor(16, post.readings)
-                    + getFactor(4, post.bookmarks)
-                    + getFactor(4, post.shares)
-                    + getFactor(16, post.rating) 
+                score = getFactor(80, timestamp.seconds)
+                    + getFactor(8, post.readings)
+                    + getFactor(2, post.bookmarks)
+                    + getFactor(2, post.shares)
+                    + getFactor(8, post.rating) 
                 await transaction.update(ref, { score: score})
                 promises.push(calculateTopicScore(post.topic.id))
                 promises.push(calculateUserScore(post.user.id))
@@ -488,7 +487,8 @@ async function propagateUserUpdates(userId: string) {
             }
             await Promise.all([
                 update(data, 'subscriptions'),
-                update(data, 'subscribers')
+                update(data, 'subscribers'),
+                update(data, 'users')
             ])
         }   
         console.log(`succeed to propagate user's updates | userId: ${userId}`)
