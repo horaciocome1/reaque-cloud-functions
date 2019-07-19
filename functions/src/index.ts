@@ -1,87 +1,53 @@
 import * as functions from 'firebase-functions'
-import * as admin from 'firebase-admin'
-import * as notifications from './utils/notifications'
-import * as counters from './utils/counters'
-import * as utils from './utils/general'
-import * as accounts from './utils/accounts'
-import * as posts from './utils/posts'
-import * as favorites from './utils/favorites'
+import * as utils from './utils'
 
-admin.initializeApp()
+export const onSubscriptionCreated = functions.firestore.document('users/{userId}/subscribers/{subscriberId}').onCreate(
+    async (_, context) => await utils.handleSubscription(context)
+)
 
-exports.onPostCreated = functions.firestore.document('posts/{postId}').onCreate(async (snap, context) => {
-    const post = snap.data()
-    if (post) {
-        const promises = [
-            posts.addPostTopicToUser(context, post),
-            notifications.buildFavoriteHasNewPostNotification(context, post),
-            counters.updateUserPostsCount(context, post),
-            counters.updateTopicPostsCount(context, post),
-            counters.updateTopicUsersCount(context, post)
-        ]
-        await Promise.all(promises)
+export const onSubscriptionDeleted = functions.firestore.document('users/{userId}/subscribers/{subscriberId}').onDelete(
+    async (_, context) => await utils.handleSubscription(context)
+)
+
+export const onBookmarkCreated = functions.firestore.document('posts/{postId}/bookmarks/{userId}').onCreate(
+    async (_, context) => await utils.handleBookmark(context)
+)
+
+export const onBookmarkDeleted = functions.firestore.document('posts/{postId}/bookmarks/{userId}').onDelete(
+    async (_, context) => await utils.handleBookmark(context)
+)
+
+export const onReadingCreated = functions.firestore.document('posts/{postId}/readings/{userId}').onCreate(
+    async (_, context) => await utils.handleReading(context)
+)
+
+export const onShareCreated = functions.firestore.document('posts/{postId}/shares/{userId}').onCreate(
+    async (_, context) => await utils.handleShare(context)
+)
+
+export const onRatingCreated = functions.firestore.document('posts/{postId}/ratings/{userId}').onCreate(
+    async (snapshot, context) => {
+        const rating = snapshot.data()
+        if (rating)
+            await utils.calculateRating(context)
     }
-})
+)
 
-exports.onPostDeleted = functions.firestore.document('posts/{postId}').onDelete(async (snap, context) => {
-    const post = snap.data()
-    if (post) {
-        const promises = [
-            notifications.wipeFavoriteHasNewPostNotifications(context),
-            counters.updateUserPostsCount(context, post),
-            counters.updateTopicPostsCount(context, post),
-            counters.updateTopicUsersCount(context, post)
-        ]
-        await Promise.all(promises)
+export const onRatingUpdated = functions.firestore.document('posts/{postId}/ratings/{userId}').onUpdate(
+    async (snapshot, context) => {
+        const rating = snapshot.after.data()
+        if (rating)
+            await utils.calculateRating(context)
     }
-})
+)
 
-exports.onUserUpdated = functions.firestore.document('users/{userId}').onUpdate(async (snap, context) => {
-    const before = snap.before.data()
-    const after = snap.after.data()
-    if (before && after) {
-        const promises = []
-        if (utils.changeOcurred(before.favorite_for, after.favorite_for))
-            promises.push(counters.updateUserFavoriteForCount(context, after))
-        if (utils.changeOcurred(before.bio, after.bio) || utils.changeOcurred(before.address, after.address))
-            promises.push(notifications.buildFavoriteUpdatedProfileNotification(context, before, after))
-        await Promise.all(promises)
+export const onPostCreated = functions.firestore.document('posts/{postId}').onCreate(
+    async (snapshot, context) => {
+        const post = snapshot.data()
+        if (post) await utils.initializePost(context, post)
     }
-})
+)
 
-exports.onUserDeleted = functions.firestore.document('users/{userId}').onDelete(async (snap, context) => {
-    const user = snap.data()
-    if (user) {
-        const promises = [
-            notifications.wipeFavoriteUpdatedProfileNotifications(context),
-            posts.wipeDeletedUserPosts(context, user)
-        ]
-        await Promise.all(promises)
-    }
-})
-
-exports.onAddToFavoritesRequestCreated = functions.firestore.document('add_to_favorites_requests/{requestId}').onCreate(async (snap, context) => {
-    const request = snap.data()
-    if(request) await favorites.addToFavorites(context, request)
-})
-
-exports.onRemoveFromFavoritesRequestCreated = functions.firestore.document('remove_from_favorites_requests/{requestId}').onCreate(async (snap, context) => {
-    const request = snap.data()
-    if(request) await favorites.removeFromFavorites(context, request)
-})
-
-exports.onUserAccountCreated = functions.auth.user().onCreate(async (user, _) => {
-    const promises = [
-        accounts.saveUserData(user),
-        notifications.subscribeUserToWelcomeNotification(user)
-    ]
-    await Promise.all(promises)
-})
-
-exports.onUserAccountDeleted = functions.auth.user().onDelete(async (user, _) => {
-    const promises = [
-        accounts.deleteUserData(user),
-        notifications.unSubscribeUserFromWelcomeNotification(user)
-    ]
-    await Promise.all(promises)
-})
+export const onAccountCreated = functions.auth.user().onCreate(
+    async (user, _) => await utils.initializeUser(user)
+)
