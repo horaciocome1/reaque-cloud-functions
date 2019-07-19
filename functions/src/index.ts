@@ -1,11 +1,11 @@
 import * as functions from 'firebase-functions'
 import * as utils from './utils'
 
-export const onSubscriptionCreated = functions.firestore.document('users/{userId}/subscriptions/{subscriptionId}').onCreate(
+export const onSubscriptionCreated = functions.firestore.document('users/{userId}/subscribers/{subscriberId}').onCreate(
     async (_, context) => await utils.handleSubscription(context)
 )
 
-export const onSubscriptionDeleted = functions.firestore.document('users/{userId}/subscriptions/{subscriptionId}').onDelete(
+export const onSubscriptionDeleted = functions.firestore.document('users/{userId}/subscribers/{subscriberId}').onDelete(
     async (_, context) => await utils.handleSubscription(context)
 )
 

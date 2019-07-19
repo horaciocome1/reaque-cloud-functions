@@ -10,12 +10,12 @@ const merge = { merge: true }
 
 export async function handleSubscription(context: functions.EventContext) {
     await Promise.all([
+        updateSubscribers(),
         updateSubscriptions(),
         updateLastSeen(context.params.userId)
     ])
-    await updateSubscribers()
 
-    async function updateSubscriptions() {
+    async function updateSubscribers() {
         try {
             await db.runTransaction(async t => {
                 const ref = db.doc(`users/${context.params.userId}`)
@@ -28,17 +28,17 @@ export async function handleSubscription(context: functions.EventContext) {
         }
     }
 
-    async function updateSubscribers() {
+    async function updateSubscriptions() {
         try {
             await db.runTransaction(async t => {
-                const ref = db.doc(`users/${context.params.subscriptionId}`)
-                const snapshot = await t.get(ref.collection('subscribers'))
-                await t.update(ref, { subscribers: snapshot.size })
+                const ref = db.doc(`users/${context.params.subscriberId}`)
+                const snapshot = await t.get(ref.collection('subscriptions'))
+                await t.update(ref, { subscriptions: snapshot.size })
             })
-            console.log(`succeed to update subscribers | userId: ${context.params.subscriptionId}`)
+            console.log(`succeed to update subscriptions | userId: ${context.params.subscriberId}`)
             await propagateUserUpdates(context.params.subscriptionId)
         } catch (err) {
-            console.log(`failed to update subscribers | userId: ${context.params.subscriptionId} | ${err}`)
+            console.log(`failed to update subscriptions | userId: ${context.params.subscriberId} | ${err}`)
         }
     }
 
@@ -151,13 +151,6 @@ export async function initializePost(context: functions.EventContext, post: Fire
         createFeedEntryForEachSubscriber(),
         updateLastSeen(post.user.id)
     ])
-    await Promise.all([
-        updateTopicPosts(),
-        updateTopicUsers(),
-        updateUserPosts(),
-        calculateTopicScore(post.topic.id),
-        calculateUserScore(post.user.id)
-    ])
 
     async function addPostDataToUser() {
         try {
@@ -171,14 +164,31 @@ export async function initializePost(context: functions.EventContext, post: Fire
             }
             await db.doc(`users/${post.user.id}/posts/${postId}`).set(data, merge)
             console.log(`succeed to add post data to its user's subcollection | postId: ${context.params.postId}`)
+            await Promise.all([
+                updateUserPosts(),
+                calculateUserScore(post.user.id)
+            ])
         } catch (err) {
             console.log(`failed to add post data to its user's subcollection | postId: ${context.params.postId} | ${err}`)
         }
+
+        async function updateUserPosts() {
+            try {
+                await db.runTransaction(async t => {
+                    const ref = db.doc(`users/${post.user.id}`)
+                    const snapshot = await t.get(ref.collection('posts'))
+                    await t.update(ref, { posts: snapshot.size })
+                })
+                console.log(`succeed to update user's posts | userId: ${post.user.id}`)
+            } catch (err) {
+                console.log(`failed to update user's posts | userId: ${post.user.id} | ${err}`)
+            }
+        }
+
     }
 
     async function addPostDataToTopic() {
         try {
-            const postId = context.params.postId
             const data = {
                 timestamp: post.timestamp,
                 title: post.title,
@@ -186,9 +196,13 @@ export async function initializePost(context: functions.EventContext, post: Fire
                 user: post.user,
                 score: 0
             }
-            await db.doc(`topics/${post.topic.id}/posts/${postId}`).set(data, merge)
+            await db.doc(`topics/${post.topic.id}/posts/${context.params.postId}`).set(data, merge)
             console.log(`succeed add post data to its topic's subcollection | postId: ${context.params.postId}`)
-            await calculateUserTopTopic()
+            await Promise.all([
+                calculateUserTopTopic(),
+                updateTopicPosts(),
+                calculateTopicScore(post.topic.id)
+            ])
         } catch (err) {
             console.log(`failed to add post data to its topic's subcollection | postId: ${context.params.postId} | ${err}`)
         }
@@ -200,22 +214,43 @@ export async function initializePost(context: functions.EventContext, post: Fire
                     title: "",
                     total_posts: 0
                 }
-                const topicsSnapshot = await db.collection('topics').get()
-                topicsSnapshot.forEach(async doc => {
-                    const postsSnapshot = await doc.ref.collection('posts').where('user.id', '==', post.user.id).get()
-                    if (postsSnapshot.size > topTopic.total_posts) {
-                        topTopic.id = doc.id
-                        topTopic.total_posts = postsSnapshot.size
-                        const topic = doc.data()
-                        if (topic)
-                            topTopic.title = topic.title
-                    }
+                await db.runTransaction(async t => {
+                    const ref1 = db.collection('topics')
+                    const topicsSnapshot = await t.get(ref1)
+                    topicsSnapshot.forEach(async doc => {
+                        const ref2 = doc.ref.collection('posts').where('user.id', '==', post.user.id)
+                        const postsSnapshot = await t.get(ref2)
+                        if (postsSnapshot.size > topTopic.total_posts) {
+                            topTopic.id = doc.id
+                            topTopic.total_posts = postsSnapshot.size
+                            const topic = doc.data()
+                            if (topic)
+                                topTopic.title = topic.title
+                        }
+                    })
+                    if (topTopic.total_posts !== 0) {
+                        const ref3 = db.doc(`users/${post.user.id}`)
+                        await t.set(ref3, { top_topic: topTopic })
+                    }   
                 })
-                if (topTopic.id !== "")
-                    await db.doc(`users/${post.user.id}`).set({ top_topic: topTopic.title }, merge)
-                console.log(`succeed to calculate user's top topic | top: ${topTopic.title}`)
+                console.log(`succeed to calculate user's top topic | top: ${topTopic}`)
+                if (topTopic.total_posts !== 0)
+                    await propagateUserUpdates(post.user.id)
             } catch (err) {
                 console.log(`failed to calculate user's top topic | ${err}`)
+            }
+        }
+
+        async function updateTopicPosts() {
+            try {
+                await db.runTransaction(async t => {
+                    const ref = db.doc(`topics/${post.topic.id}`)
+                    const snapshot = await t.get(ref.collection('posts'))
+                    await t.update(ref, { posts: snapshot.size })
+                })
+                console.log(`succeed to update topic's posts | topicId: ${post.topic.id}`)
+            } catch (err) {
+                console.log(`failed to update topic's posts | topicId: ${post.topic.id} | ${err}`)
             }
         }
 
@@ -223,70 +258,50 @@ export async function initializePost(context: functions.EventContext, post: Fire
 
     async function addUserDataToTopic() {
         try {
-            const snapshot = await db.doc(`users/${post.user.id}`).get()
-            const user = snapshot.data()
-            if (user) {
-                const data = {
-                    name: user.name,
-                    pic: user.pic,
-                    top_topic: user.top_topic,
-                    subscribers: user.subscribers
+            await db.runTransaction(async t => {
+                let ref = db.doc(`users/${post.user.id}`)
+                const snapshot = await t.get(ref)
+                const user = snapshot.data()
+                if (user) {
+                    const data = {
+                        name: user.name,
+                        pic: user.pic,
+                        top_topic: user.top_topic,
+                        subscribers: user.subscribers
+                    }
+                    ref = db.doc(`topics/${post.topic.id}/users/${post.user.id}`)
+                    await t.set(ref, data, merge)
                 }
-                await db.doc(`topics/${post.topic.id}/users/${post.user.id}`).set(data, merge)
-            }
+            })
             console.log(`succeed to add user data to its topic's subcollection | userId: ${post.user.id}`)
+            await updateTopicUsers()
         } catch (err) {
             console.log(`failed to add user data to its topic's subcollection | userId: ${post.user.id} | ${err}`)
         }
-    }
 
-    async function updateTopicPosts() {
-        try {
-            await db.runTransaction(async t => {
-                const ref = db.doc(`topics/${post.topic.id}`)
-                const snapshot = await t.get(ref.collection('posts'))
-                await t.update(ref, { posts: snapshot.size })
-            })
-            console.log(`succeed to update topic's posts | topicId: ${post.topic.id}`)
-        } catch (err) {
-            console.log(`failed to update topic's posts | topicId: ${post.topic.id} | ${err}`)
+        async function updateTopicUsers() {
+            try {
+                await db.runTransaction(async t => {
+                    const ref = db.doc(`topics/${post.topic.id}`)
+                    const snapshot = await t.get(ref.collection('users'))
+                    await t.update(ref, { users: snapshot.size })
+                })
+                console.log(`succeed to update topic's users | topicId: ${post.topic.id}`)
+            } catch (err) {
+                console.log(`failed to update topic's users | topicId: ${post.topic.id} | ${err}`)
+            }
         }
-    }
 
-    async function updateTopicUsers() {
-        try {
-            await db.runTransaction(async t => {
-                const ref = db.doc(`topics/${post.topic.id}`)
-                const snapshot = await t.get(ref.collection('users'))
-                await t.update(ref, { users: snapshot.size })
-            })
-            console.log(`succeed to update topic's users | topicId: ${post.topic.id}`)
-        } catch (err) {
-            console.log(`failed to update topic's users | topicId: ${post.topic.id} | ${err}`)
-        }
-    }
-
-    async function updateUserPosts() {
-        try {
-            await db.runTransaction(async t => {
-                const ref = db.doc(`users/${post.user.id}`)
-                const snapshot = await t.get(ref.collection('posts'))
-                await t.update(ref, { posts: snapshot.size })
-            })
-            console.log(`succeed to update user's posts | userId: ${post.user.id}`)
-        } catch (err) {
-            console.log(`failed to update user's posts | userId: ${post.user.id} | ${err}`)
-        }
     }
 
     async function createFeedEntryForEachSubscriber() {
         try {
-            const feedEntry: FirebaseFirestore.DocumentData = {
+            const feedEntry = {
                 title: post.title,
                 pic: post.pic,
                 timestamp: post.timestamp,
                 user: post.user,
-                score: 0
+                score: post.score
             }
             const snapshot = await db.collection(`users/${post.user.id}/subscribers`).get()
             const batch = db.batch()
@@ -311,8 +326,8 @@ export async function initializeUser(user: admin.auth.UserRecord) {
             pic: user.photoURL,
             since: Timestamp.now(),
             top_topic: '',
-            subscribers: 0,
             subscriptions: 0,
+            subscribers: 0,
             posts: 0,
             score: 0
         }
@@ -481,13 +496,13 @@ async function propagateUserUpdates(userId: string) {
         const user = snapshot.data()
         if (user) {
             const data = {
-                subscribers: user.subscribers,
-                top_topic: user.top_topic,
+                subscriptions: user.subscriptions,
+                top_topic: user.top_topic.title,
                 score: user.score
             }
             await Promise.all([
                 update(data, 'subscriptions'),
-                update(data, 'subscribers'),
+                update(data, 'subscriptions'),
                 update(data, 'users')
             ])
         }   
