@@ -19,12 +19,12 @@ export async function handleSubscription(context: functions.EventContext) {
         try {
             await db.runTransaction(async t => {
                 const ref = db.doc(`users/${context.params.userId}`)
-                const snapshot = await t.get(ref.collection('subscriptions'))
-                await t.update(ref, { subscriptions: snapshot.size })
+                const snapshot = await t.get(ref.collection('subscribers'))
+                await t.set(ref, { subscribers: snapshot.size }, merge)
             })
-            console.log(`succeed to update subscriptions | userId: ${context.params.userId}`)
+            console.log(`succeed to update subscribers | userId: ${context.params.userId}`)
         } catch (err) {
-            console.log(`failed to update subscriptions | userId: ${context.params.userId} | ${err}`)
+            console.log(`failed to update subscribers | userId: ${context.params.userId} | ${err}`)
         }
     }
 
@@ -33,7 +33,7 @@ export async function handleSubscription(context: functions.EventContext) {
             await db.runTransaction(async t => {
                 const ref = db.doc(`users/${context.params.subscriberId}`)
                 const snapshot = await t.get(ref.collection('subscriptions'))
-                await t.update(ref, { subscriptions: snapshot.size })
+                await t.set(ref, { subscriptions: snapshot.size }, merge)
             })
             console.log(`succeed to update subscriptions | userId: ${context.params.subscriberId}`)
             await propagateUserUpdates(context.params.subscriptionId)
