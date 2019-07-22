@@ -65,7 +65,7 @@ export async function initializePost(context: functions.EventContext, post: Fire
                 })
                 if (topTopic.total_posts !== 0) {
                     const ref3 = db.doc(`users/${post.user.id}`)
-                    await t.set(ref3, { top_topic: topTopic })
+                    await t.set(ref3, { top_topic: topTopic.title })
                 }   
             })
             console.log(`succeed to calculate user's top topic | top: ${topTopic}`)
@@ -154,7 +154,7 @@ export async function propagateUserUpdates(userId: string) {
         if (user) {
             const data = {
                 subscribers: user.subscribers,
-                top_topic: user.top_topic.title,
+                top_topic: user.top_topic,
                 score: user.score
             }
             await Promise.all([
