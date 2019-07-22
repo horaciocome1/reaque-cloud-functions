@@ -8,10 +8,6 @@ const db = admin.firestore()
 
 const merge = { merge: true }
 
-export async function handleSubscription(context: functions.EventContext) {
-    await propagateUserUpdates(context.params.userId)
-}
-
 export async function calculateRating(context: functions.EventContext) {
     try {
         await db.runTransaction(async t => {
@@ -151,104 +147,6 @@ export async function initializeUser(user: admin.auth.UserRecord) {
 
 }
 
-async function calculatePostScore(postId: string) {
-    try {
-        let score = 0
-        await db.runTransaction(async transaction => {
-            const ref = db.doc(`posts/${postId}`)
-            const snapshot = await transaction.get(ref)
-            const post = snapshot.data()
-            if (post) {
-                const timestamp: FirebaseFirestore.Timestamp = post.timestamp
-                score = getFactor(80, timestamp.seconds)
-                    + getFactor(8, post.readings)
-                    + getFactor(2, post.bookmarks)
-                    + getFactor(2, post.shares)
-                    + getFactor(8, post.rating) 
-                await transaction.update(ref, { score: score })
-            }
-        })
-        console.log(`succeed to calculate post's score | postId: ${postId}`)
-        await propagatePostScore(score)
-    } catch (err) {
-        console.log(`failed to calculate post's score | postId: ${postId} | ${err}`)
-    }
-    
-    function getFactor(percent: number, x: number): number {
-        if (x !== 0)
-            return (1 - (1 / x)) * (percent / 100)
-        return 0
-    }
-
-    async function propagatePostScore(score: number): Promise<void> {
-        try {
-            await Promise.all([
-                update('posts'),
-                update('bookmarks'),
-                update('feed')
-            ])
-            console.log(`succeed to propagate post's score | ${score}`)
-        } catch (err) {
-            console.log(`failed to propagate post's score | ${err}`)
-        }
-
-        async function update(collectionName: string) {
-            const snapshot = await db.collectionGroup(collectionName).get()
-            const batch = db.batch()
-            snapshot.forEach(doc => {
-                if (doc.id === postId)
-                    batch.set(doc.ref, { score: score }, merge)
-            })
-            await batch.commit()
-        }
-
-    }
-
-}
-
-async function calculateTopicScorex(topicId: string) {
-    try {
-        await db.runTransaction(async t => {
-            const ref = db.doc(`topics/${topicId}`)
-            const snapshot = await t.get(ref.collection('posts'))
-            let sum = 0
-            snapshot.forEach(doc => {
-                const post = doc.data()
-                if (post)
-                    sum += post.score
-            })
-            const s = sum / snapshot.size
-            t.update(ref, { score: s })
-        })
-        console.log(`succeed to calculate topic's score | ${topicId}`)
-    } catch (err) {
-        console.log(`failed to calculate topic's score | ${topicId} | ${err}`)
-    }
-
-}
-
-async function calculateUserScorex(userId: string) {
-    try {
-        await db.runTransaction(async t => {
-            const ref = db.doc(`users/${userId}`)
-            const snapshot = await t.get(ref.collection('posts'))
-            let sum = 0
-            snapshot.forEach(doc => {
-                const post = doc.data()
-                if (post)
-                    sum += post.score
-            })
-            const s = sum / snapshot.size
-            t.update(ref, { score: s })
-        })
-        console.log(`succeed to calculate user's score | ${userId}`)
-        await propagateUserUpdates(userId)
-    } catch (err) {
-        console.log(`failed to calculate user's score | ${userId} | ${err}`)
-    }
-
-}
-
 export async function propagateUserUpdates(userId: string) {
     try {
         const snapshot = await db.doc(`users/${userId}`).get()
@@ -278,6 +176,146 @@ export async function propagateUserUpdates(userId: string) {
                 batch.set(doc.ref, data, merge)
         })
         await batch.commit()
+    }
+
+}
+
+export async function handlingUpdatingEachPostScore() {
+
+    try {
+        const snapshot = await db.collection('posts').get()
+        snapshot.forEach(async doc => await calculatePostScore(doc.id))
+        console.log(`succeed to handle updating each post score | ${snapshot.size}`)
+        return true
+    } catch (err) {
+        console.log(`failed to handle updating each post score | ${err}`)
+        return false
+    }
+
+    async function calculatePostScore(postId: string) {
+        try {
+            let score = 0
+            await db.runTransaction(async transaction => {
+                const ref = db.doc(`posts/${postId}`)
+                const snapshot = await transaction.get(ref)
+                const post = snapshot.data()
+                if (post) {
+                    const timestamp: FirebaseFirestore.Timestamp = post.timestamp
+                    score = getFactor(80, timestamp.seconds)
+                        + getFactor(8, post.readings)
+                        + getFactor(2, post.bookmarks)
+                        + getFactor(2, post.shares)
+                        + getFactor(8, post.rating) 
+                    await transaction.update(ref, { score: score })
+                }
+            })
+            console.log(`succeed to calculate post's score | postId: ${postId}`)
+            await propagatePostScore(score)
+        } catch (err) {
+            console.log(`failed to calculate post's score | postId: ${postId} | ${err}`)
+        }
+        
+        function getFactor(percent: number, x: number): number {
+            if (x !== 0)
+                return (1 - (1 / x)) * (percent / 100)
+            return 0
+        }
+    
+        async function propagatePostScore(score: number): Promise<void> {
+            try {
+                await Promise.all([
+                    update('posts'),
+                    update('bookmarks'),
+                    update('feed')
+                ])
+                console.log(`succeed to propagate post's score | ${score}`)
+            } catch (err) {
+                console.log(`failed to propagate post's score | ${err}`)
+            }
+    
+            async function update(collectionName: string) {
+                const snapshot = await db.collectionGroup(collectionName).get()
+                const batch = db.batch()
+                snapshot.forEach(doc => {
+                    if (doc.id === postId)
+                        batch.set(doc.ref, { score: score }, merge)
+                })
+                await batch.commit()
+            }
+    
+        }
+    
+    }
+
+}
+
+export async function handlingUpdatingEachTopicScore() {
+
+    try {
+        const snapshot = await db.collection('topics').get()
+        snapshot.forEach(async doc => await calculateTopicScore(doc.id))
+        console.log(`succeed to handle updating each topic score | ${snapshot.size}`)
+        return true
+    } catch (err) {
+        console.log(`failed to handle updating each topic score | ${err}`)
+        return false
+    }
+
+    async function calculateTopicScore(topicId: string) {
+        try {
+            await db.runTransaction(async t => {
+                const ref = db.doc(`topics/${topicId}`)
+                const snapshot = await t.get(ref.collection('posts'))
+                let sum = 0
+                snapshot.forEach(doc => {
+                    const post = doc.data()
+                    if (post)
+                        sum += post.score
+                })
+                const s = sum / snapshot.size
+                t.update(ref, { score: s })
+            })
+            console.log(`succeed to calculate topic's score | ${topicId}`)
+        } catch (err) {
+            console.log(`failed to calculate topic's score | ${topicId} | ${err}`)
+        }
+
+    }
+
+}
+
+export async function handlingUpdatingEachUserScore() {
+
+    try {
+        const snapshot = await db.collection('topics').get()
+        snapshot.forEach(async doc => await calculateUserScore(doc.id))
+        console.log(`succeed to handle updating each topic score | ${snapshot.size}`)
+        return true
+    } catch (err) {
+        console.log(`failed to handle updating each topic score | ${err}`)
+        return false
+    }
+
+    async function calculateUserScore(userId: string) {
+        try {
+            await db.runTransaction(async t => {
+                const ref = db.doc(`users/${userId}`)
+                const snapshot = await t.get(ref.collection('posts'))
+                let sum = 0
+                snapshot.forEach(doc => {
+                    const post = doc.data()
+                    if (post)
+                        sum += post.score
+                })
+                const s = sum / snapshot.size
+                t.update(ref, { score: s })
+            })
+            console.log(`succeed to calculate user's score | ${userId}`)
+            await propagateUserUpdates(userId)
+        } catch (err) {
+            console.log(`failed to calculate user's score | ${userId} | ${err}`)
+        }
+
     }
 
 }
