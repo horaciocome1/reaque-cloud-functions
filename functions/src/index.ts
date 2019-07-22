@@ -2,27 +2,11 @@ import * as functions from 'firebase-functions'
 import * as utils from './utils'
 
 export const onSubscriptionCreated = functions.firestore.document('users/{userId}/subscribers/{subscriberId}').onCreate(
-    async (_, context) => await utils.handleSubscription(context)
+    async (_, context) => await utils.propagateUserUpdates(context.params.userId)
 )
 
 export const onSubscriptionDeleted = functions.firestore.document('users/{userId}/subscribers/{subscriberId}').onDelete(
-    async (_, context) => await utils.handleSubscription(context)
-)
-
-export const onBookmarkCreated = functions.firestore.document('posts/{postId}/bookmarks/{userId}').onCreate(
-    async (_, context) => await utils.handleBookmark(context)
-)
-
-export const onBookmarkDeleted = functions.firestore.document('posts/{postId}/bookmarks/{userId}').onDelete(
-    async (_, context) => await utils.handleBookmark(context)
-)
-
-export const onReadingCreated = functions.firestore.document('posts/{postId}/readings/{userId}').onCreate(
-    async (_, context) => await utils.handleReading(context)
-)
-
-export const onShareCreated = functions.firestore.document('posts/{postId}/shares/{userId}').onCreate(
-    async (_, context) => await utils.handleShare(context)
+    async (_, context) => await utils.propagateUserUpdates(context.params.userId)
 )
 
 export const onRatingCreated = functions.firestore.document('posts/{postId}/ratings/{userId}').onCreate(
