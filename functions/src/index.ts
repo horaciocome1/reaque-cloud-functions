@@ -20,7 +20,7 @@ export const onRatingUpdated = functions.firestore.document('posts/{postId}/rati
 export const onPostCreated = functions.firestore.document('posts/{postId}').onCreate(
     async (snapshot, context) => {
         const post = snapshot.data()
-        if (post) await utils.initializePost(context, post)
+        if (post) await utils.createFeedEntryForEachSubscriber(context, post)
     }
 )
 

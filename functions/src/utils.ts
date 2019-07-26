@@ -36,72 +36,26 @@ export async function calculateRating(context: functions.EventContext) {
 
 }
 
-export async function initializePost(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
-    
+export async function createFeedEntryForEachSubscriber(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
     try {
-        await Promise.all([
-            createFeedEntryForEachSubscriber(),
-            calculateUserTopTopic()
-        ])
-        console.log(`succeed to initialize post | postId: ${context.params.postId}`)
+        const feedEntry = {
+            title: post.title,
+            pic: post.pic,
+            timestamp: post.timestamp,
+            user: post.user,
+            score: post.score
+        }
+        const snapshot = await db.collection(`users/${post.user.id}/subscribers`).get()
+        const batch = db.batch()
+        snapshot.forEach(doc => {
+            const ref = db.doc(`users/${doc.id}/feed/${context.params.postId}`)
+            batch.set(ref, feedEntry, merge)
+        })
+        await batch.commit()
+        console.log(`succeed to create feed entries | postId: ${context.params.postId}`)
     } catch (err) {
-        console.log(`failed to initialize post | postId: ${context.params.postId} | ${err}`)        
+        console.log(`failed to create feed entries | postId: ${context.params.postId} | ${err}`)
     }
-
-    async function calculateUserTopTopic() {
-        try {
-            const topTopic = {
-                id: "",
-                title: "",
-                total_posts: 0
-            }
-            await db.runTransaction(async t => {
-                const ref1 = db.collection('topics')
-                const topicsSnapshot = await t.get(ref1)
-                topicsSnapshot.forEach(async doc => {
-                    const ref2 = doc.ref.collection('posts').where('user.id', '==', post.user.id)
-                    const postsSnapshot = await t.get(ref2)
-                    if (postsSnapshot.size > topTopic.total_posts) {
-                        topTopic.id = doc.id
-                        topTopic.total_posts = postsSnapshot.size
-                        const topic = doc.data()
-                        if (topic)
-                            topTopic.title = topic.title
-                    }
-                })
-                if (topTopic.total_posts !== 0) {
-                    const ref3 = db.doc(`users/${post.user.id}`)
-                    await t.set(ref3, { top_topic: topTopic.title })
-                }   
-            })
-            console.log(`succeed to calculate user's top topic | top: ${topTopic}`)
-        } catch (err) {
-            console.log(`failed to calculate user's top topic | ${err}`)
-        }
-    }
-
-    async function createFeedEntryForEachSubscriber() {
-        try {
-            const feedEntry = {
-                title: post.title,
-                pic: post.pic,
-                timestamp: post.timestamp,
-                user: post.user,
-                score: post.score
-            }
-            const snapshot = await db.collection(`users/${post.user.id}/subscribers`).get()
-            const batch = db.batch()
-            snapshot.forEach(doc => {
-                const ref = db.doc(`users/${doc.id}/feed/${context.params.postId}`)
-                batch.set(ref, feedEntry, merge)
-            })
-            await batch.commit()
-            console.log(`succeed to create feed entries | postId: ${context.params.postId}`)
-        } catch (err) {
-            console.log(`failed to create feed entries | postId: ${context.params.postId} | ${err}`)
-        }
-    }
-
 }
 
 export async function initializeUser(user: admin.auth.UserRecord) {
