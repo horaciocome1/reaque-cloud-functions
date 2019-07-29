@@ -10,19 +10,14 @@ const merge = { merge: true }
 
 export async function calculateRating(context: functions.EventContext) {
     try {
-        await db.runTransaction(async t => {
+        await db.runTransaction(async transaction => {
             const ref = db.collection(`posts/${context.params.postId}/ratings`)
-            const snapshot = await t.get(ref)
-            let sum = 0
-            snapshot.forEach(doc => {
-                const data = doc.data()
-                if (data)
-                    sum += data.value
-            })
-            const postRating = sum / snapshot.size
-            const roundedRating = round(postRating, 1) // 1 decimal, uma casa decimal
+            const snapshot = await transaction.get(ref)
+            const ratings = snapshot.docs.map(doc => doc.data().value)
+            const average = ratings.length ? ratings.reduce((total, val) => total + val) / ratings.length : 0
+            const rating = round(average, 1) // 1 decimal, uma casa decimal
             const ref2 = db.doc(`posts/${context.params.postId}`)
-            await t.update(ref2, { rating: roundedRating })
+            await transaction.set(ref2, { rating: rating }, merge)
         })
         console.log(`succeed to calculate rating | postId: ${context.params.postId}`)
     } catch (err) {
@@ -39,6 +34,7 @@ export async function calculateRating(context: functions.EventContext) {
 export async function createFeedEntryForEachSubscriber(context: functions.EventContext, post: FirebaseFirestore.DocumentData) {
     try {
         const feedEntry = {
+            id: context.params.postId,
             title: post.title,
             pic: post.pic,
             timestamp: post.timestamp,
@@ -47,8 +43,10 @@ export async function createFeedEntryForEachSubscriber(context: functions.EventC
         }
         const snapshot = await db.collection(`users/${post.user.id}/subscribers`).get()
         const batch = db.batch()
+        let ref = db.doc(`users/${post.user.id}/feed/${context.params.postId}`)
+        batch.set(ref, feedEntry, merge)
         snapshot.forEach(doc => {
-            const ref = db.doc(`users/${doc.id}/feed/${context.params.postId}`)
+            ref = db.doc(`users/${doc.id}/feed/${context.params.postId}`)
             batch.set(ref, feedEntry, merge)
         })
         await batch.commit()
@@ -87,6 +85,7 @@ export async function initializeUser(user: admin.auth.UserRecord) {
                 const post = doc.data()
                 if (post) {
                     const feedEntry = {
+                        id: doc.id,
                         title: post.title,
                         pic: post.pic,
                         timestamp: post.timestamp,
@@ -121,19 +120,19 @@ export async function handlingUpdatingEachPostScore() {
     async function calculatePostScore(postId: string) {
         try {
             let score = 0
+            const ref = db.doc(`posts/${postId}`)
             await db.runTransaction(async transaction => {
-                const ref = db.doc(`posts/${postId}`)
                 const snapshot = await transaction.get(ref)
                 const post = snapshot.data()
                 if (post) {
                     const timestamp: FirebaseFirestore.Timestamp = post.timestamp
-                    score = getFactor(90, timestamp.seconds)
-                        + getFactor(4, post.readings)
-                        + getFactor(1, post.bookmarks)
-                        + getFactor(1, post.shares)
-                        + getFactor(4, post.rating)
+                    score = getFactor(99, timestamp.seconds)
+                        + getFactor(0.1, post.readings)
+                        + getFactor(0.2, post.bookmarks)
+                        + getFactor(0.2, post.shares)
+                        + getFactor(0.5, post.rating)
                 }
-                await transaction.update(ref, { score: score })
+                await transaction.set(ref, { score: score }, merge)
             })
             console.log(`succeed to calculate post's score | postId: ${postId}`)
             await propagatePostScore(score)
@@ -162,12 +161,9 @@ export async function handlingUpdatingEachPostScore() {
     
             async function update(collectionName: string) {
                 try {
-                    const snapshot = await db.collectionGroup(collectionName).get()
+                    const snapshot = await db.collectionGroup(collectionName).where('id', '==', postId).get()
                     const batch = db.batch()
-                    snapshot.forEach(doc => {
-                        if (doc.id === postId)
-                            batch.set(doc.ref, { score: score }, merge)
-                    })
+                    snapshot.forEach(doc => batch.set(doc.ref, { score: score }, merge))
                     await batch.commit()
                     console.log(`succeed to propagate post's updates to collection | collectionName: ${collectionName}`)
                 } catch (err) {
@@ -204,8 +200,8 @@ export async function handlingUpdatingEachTopicScore() {
                     if (post)
                         sum += post.score
                 })
-                const s = sum / snapshot.size
-                t.update(ref, { score: s })
+                const score = sum / snapshot.size
+                t.set(ref, { score: score }, merge)
             })
             console.log(`succeed to calculate topic's score | ${topicId}`)
         } catch (err) {
@@ -239,8 +235,8 @@ export async function handlingUpdatingEachUserScore() {
                     if (post)
                         sum += post.score
                 })
-                const s = sum / snapshot.size
-                t.update(ref, { score: s })
+                const score = sum / snapshot.size
+                t.set(ref, { score: score }, merge)
             })
             console.log(`succeed to calculate user's score | ${userId}`)
             await propagateUserUpdates()
@@ -272,12 +268,9 @@ export async function handlingUpdatingEachUserScore() {
         
             async function update(data: any, collectionName: string) {
                 try {
-                    const snapshot = await db.collectionGroup(collectionName).get()
+                    const snapshot = await db.collectionGroup(collectionName).where('id', '==', userId).get()
                     const batch = db.batch()
-                    snapshot.forEach(doc => {
-                        if (doc.id === userId)
-                            batch.set(doc.ref, data, merge)
-                    })
+                    snapshot.forEach(doc => batch.set(doc.ref, data, merge))
                     await batch.commit()
                     console.log(`succeed to propagate user's updates to collection | collectionName: ${collectionName}`)
                 } catch (err) {

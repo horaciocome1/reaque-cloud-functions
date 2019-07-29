@@ -28,8 +28,7 @@ export const onAccountCreated = functions.auth.user().onCreate(
     async (user, _) => await utils.initializeUser(user)
 )
 
-export const updatingEachPostScore = functions.https.onRequest(
-    async (_, res) => {
+export const updatingEachPostScore = functions.https.onRequest(async (_, res) => {
         const hasErros = await utils.handlingUpdatingEachPostScore()
         let message = 'updatingEachPostScore: '
         if (hasErros === true)
@@ -37,11 +36,9 @@ export const updatingEachPostScore = functions.https.onRequest(
         else
             message += 'We had some errors! Please visit the logs'
         await res.send(message)
-    }
-)
+})
 
-export const updatingEachTopicScore = functions.https.onRequest(
-    async (_, res) => {
+export const updatingEachTopicScore = functions.https.onRequest(async (_, res) => {
         const hasErros = await utils.handlingUpdatingEachTopicScore()
         let message = 'updatingEachTopicScore: '
         if (hasErros === true)
@@ -49,11 +46,9 @@ export const updatingEachTopicScore = functions.https.onRequest(
         else
             message += 'We had some errors! Please visit the logs'
         await res.send(message)
-    }
-)
+})
 
-export const updatingEachUserScore = functions.https.onRequest(
-    async (_, res) => {
+export const updatingEachUserScore = functions.https.onRequest(async (_, res) => {
         const hasErros = await utils.handlingUpdatingEachUserScore()
         let message = 'updatingEachUserScore: '
         if (hasErros === true)
@@ -61,5 +56,4 @@ export const updatingEachUserScore = functions.https.onRequest(
         else
             message += 'We had some errors! Please visit the logs'
         await res.send(message)
-    }
-)
+})
