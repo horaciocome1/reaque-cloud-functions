@@ -1,59 +1,67 @@
 import * as functions from 'firebase-functions'
 import * as utils from './utils'
 
-export const onRatingCreated = functions.firestore.document('posts/{postId}/ratings/{userId}').onCreate(
-    async (snapshot, context) => {
-        const rating = snapshot.data()
-        if (rating)
-            await utils.calculateRating(context)
-    }
-)
+export const onRatingWritten = functions.firestore
+    .document('posts/{postId}/ratings/{userId}')
+    .onWrite(async (_, context) => {
+        const postId = context.params.postId
+        await utils.calculateAverageRating(postId)
+        return utils.calculatePostScore(postId)
+    })
 
-export const onRatingUpdated = functions.firestore.document('posts/{postId}/ratings/{userId}').onUpdate(
-    async (snapshot, context) => {
-        const rating = snapshot.after.data()
-        if (rating)
-            await utils.calculateRating(context)
-    }
-)
+export const onBookmarkCreated = functions.firestore
+    .document('users/{userId}/bookmarks/{postId}')
+    .onCreate((_, context) => {
+        const postId = context.params.postId
+        return utils.calculatePostScore(postId)
+    })
 
-export const onPostCreated = functions.firestore.document('posts/{postId}').onCreate(
-    async (snapshot, context) => {
+export const onBookmarkDeleted = functions.firestore
+    .document('users/{userId}/bookmarks/{postId}')
+    .onDelete((_, context) => {
+        const postId = context.params.postId
+        return utils.calculatePostScore(postId)
+    })
+
+export const onReadingWritten = functions.firestore
+    .document('users/{userId}/readings/{postId}')
+    .onWrite((_, context) => {
+        const postId = context.params.postId
+        return utils.calculatePostScore(postId)
+    })
+
+export const onShareWritten = functions.firestore
+    .document('users/{userId}/shares/{postId}')
+    .onWrite((_, context) => {
+        const postId = context.params.postId
+        return utils.calculatePostScore(postId)
+    })
+
+export const onPostCreated = functions.firestore
+    .document('posts/{postId}')
+    .onCreate((snapshot, context) => {
         const post = snapshot.data()
-        if (post) await utils.createFeedEntryForEachSubscriber(context, post)
-    }
-)
+        if (post) {
+            const postId = context.params.postId
+            return utils.createFeedEntryForEachSubscriber(postId, post)
+        }
+        return
+    })
 
-export const onAccountCreated = functions.auth.user().onCreate(
-    async (user, _) => await utils.initializeUser(user)
-)
+export const onTopicPostWritten = functions.firestore
+    .document('topics/{topicId}/posts/{postId}')
+    .onWrite((_, context) => {
+        const topicId = context.params.topicId
+        return utils.calculateTopicAverageScore(topicId)
+    })
 
-export const updatingEachPostScore = functions.https.onRequest(async (_, res) => {
-        const hasErros = await utils.handlingUpdatingEachPostScore()
-        let message = 'updatingEachPostScore: '
-        if (hasErros === true)
-            message += 'Successful!'
-        else
-            message += 'We had some errors! Please visit the logs'
-        await res.send(message)
-})
+export const onUserPostWritten = functions.firestore
+    .document('users/{userId}/posts/{postId}')
+    .onWrite(async (_, context) => {
+        const userId = context.params.userId
+        await utils.calculateUserAverageScore(userId)
+        return utils.propagateUserUpdates(userId)
+    })
 
-export const updatingEachTopicScore = functions.https.onRequest(async (_, res) => {
-        const hasErros = await utils.handlingUpdatingEachTopicScore()
-        let message = 'updatingEachTopicScore: '
-        if (hasErros === true)
-            message += 'Successful!'
-        else
-            message += 'We had some errors! Please visit the logs'
-        await res.send(message)
-})
-
-export const updatingEachUserScore = functions.https.onRequest(async (_, res) => {
-        const hasErros = await utils.handlingUpdatingEachUserScore()
-        let message = 'updatingEachUserScore: '
-        if (hasErros === true)
-            message += 'Successful!'
-        else
-            message += 'We had some errors! Please visit the logs'
-        await res.send(message)
-})
+export const onAccountCreated = functions.auth.user()
+    .onCreate((user, _) => utils.initializeUser(user))
