@@ -103,7 +103,8 @@ export async function initializeUser(user: admin.auth.UserRecord) {
             subscriptions: 0,
             subscribers: 0,
             posts: 0,
-            score: 0
+            score: 0,
+            bookmarks: 0
         }
         await db.doc(`users/${user.uid}`).set(data, merge)
         console.log(`succeed to initialize user | userId: ${user.uid}`)
