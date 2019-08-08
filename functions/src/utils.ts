@@ -1,3 +1,18 @@
+/*
+ *    Copyright 2019 Horácio Flávio Comé Júnior
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and limitations under the License.
+ */
+
 import * as admin from 'firebase-admin'
 import { Timestamp } from '@google-cloud/firestore'
 
@@ -6,6 +21,34 @@ admin.initializeApp()
 const db = admin.firestore()
 
 const merge = { merge: true }
+
+export async function notifySubscribedUser(userId: string, subscriberId: string, subscriber: FirebaseFirestore.DocumentData) {
+    try {
+        const snapshot = await db.doc(`users/${userId}`).get()
+        const user = snapshot.data()
+        if (user) {
+            if (user.registrationToken === undefined) {
+                console.error(`failed to notify subscribed user | userId: ${userId} | user does not have registration token`)
+                return
+            }
+            const payload = {
+                notification: {
+                    title: subscriber.name,
+                    body: `${subscriber.name} subscribed to you!`,
+                    clickAction: 'MainActivity'
+                },
+                data: {
+                    USER_ID: subscriberId
+                }
+            }
+            const messaging = admin.messaging()
+            await messaging.sendToDevice(user.registrationToken, payload)
+        }
+        console.log(`succeed to notify subscribed user | userId: ${userId}`)     
+    } catch (err) {
+        console.error(`failed to notify subscribed user | userId: ${userId} | ${err}`)       
+    }
+}
 
 export async function calculateAverageRating(postId: string) {
 
@@ -20,7 +63,7 @@ export async function calculateAverageRating(postId: string) {
         })
         console.log(`succeed to calculate rating | postId: ${postId}`)
     } catch (err) {
-        console.log(`failed to calculate rating | postId: ${postId} | ${err}`)
+        console.error(`failed to calculate rating | postId: ${postId} | ${err}`)
     }
 
     function round(value: number, precision: number) {
@@ -51,7 +94,7 @@ export async function createFeedEntryForEachSubscriber(postId: string, post: Fir
         await batch.commit()
         console.log(`succeed to create feed entries | postId: ${postId} | ${snapshot.size}`)
     } catch (err) {
-        console.log(`failed to create feed entries | postId: ${postId} | ${err}`)
+        console.error(`failed to create feed entries | postId: ${postId} | ${err}`)
     }
 }
 
@@ -69,7 +112,7 @@ export async function calculateTopicAverageScore(topicId: string) {
         })
         console.log(`succeed to calculate topic average score | topicId: ${topicId} | ${average}`)
     } catch (err) {
-        console.log(`failed to calculate topic average score | topicId: ${topicId} | ${err}`)
+        console.error(`failed to calculate topic average score | topicId: ${topicId} | ${err}`)
     }
 }
 
@@ -87,7 +130,7 @@ export async function calculateUserAverageScore(userId: string) {
         })
         console.log(`succeed to calculate user average score | userId: ${userId} | ${average}`)
     } catch (err) {
-        console.log(`failed to calculate user average score | userId: ${userId} | ${err}`)
+        console.error(`failed to calculate user average score | userId: ${userId} | ${err}`)
     }
 }
 
@@ -110,7 +153,7 @@ export async function initializeUser(user: admin.auth.UserRecord) {
         console.log(`succeed to initialize user | userId: ${user.uid}`)
         await createFeedToNewUser()
     } catch (err) {
-        console.log(`failed to initialize user | userId: ${user.uid} | ${err}`)
+        console.error(`failed to initialize user | userId: ${user.uid} | ${err}`)
     }
 
     async function createFeedToNewUser() {
@@ -135,7 +178,7 @@ export async function initializeUser(user: admin.auth.UserRecord) {
             await batch.commit()
             console.log(`succeed to create feed to new user | userId: ${user.uid}`)
         } catch (err) {
-            console.log(`failed to create feed to new user | userId: ${user.uid} | ${err}`)
+            console.error(`failed to create feed to new user | userId: ${user.uid} | ${err}`)
         }
     }
 
@@ -162,7 +205,7 @@ export async function calculatePostScore(postId: string) {
         console.log(`succeed to calculate post's score | postId: ${postId} | ${score}`)
         await propagatePostScore(score)
     } catch (err) {
-        console.log(`failed to calculate post's score | postId: ${postId} | ${err}`)
+        console.error(`failed to calculate post's score | postId: ${postId} | ${err}`)
     }
     
     function getFactor(percent: number, x: number): number {
@@ -187,7 +230,7 @@ export async function calculatePostScore(postId: string) {
                 await batch.commit()
                 console.log(`succeed to propagate post's updates to collection | collectionName: ${collectionName} | ${snapshot.size}`)
             } catch (err) {
-                console.log(`failed to propagate post's updates to collection | collectionName: ${collectionName} | ${err}`)        
+                console.error(`failed to propagate post's updates to collection | collectionName: ${collectionName} | ${err}`)        
             }
         }
 
@@ -214,7 +257,7 @@ export async function propagateUserUpdates(userId: string) {
         }   
         console.log(`succeed to propagate user's updates | userId: ${userId}`)
     } catch (err) {
-        console.log(`failed to propagate user's updates | userId: ${userId} | ${err}`)
+        console.error(`failed to propagate user's updates | userId: ${userId} | ${err}`)
     }
 
     async function update(data: any, collectionName: string) {
@@ -225,7 +268,7 @@ export async function propagateUserUpdates(userId: string) {
             await batch.commit()
             console.log(`succeed to propagate user's updates to collection | collectionName: ${collectionName} | ${snapshot.size}`)
         } catch (err) {
-            console.log(`failed to propagate user's updates to collection | collectionName: ${collectionName} | ${err}`)        
+            console.error(`failed to propagate user's updates to collection | collectionName: ${collectionName} | ${err}`)        
         }
     }
 
