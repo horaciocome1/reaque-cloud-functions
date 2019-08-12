@@ -81,14 +81,13 @@ export async function createFeedEntryForEachSubscriber(postId: string, post: Fir
             pic: post.pic,
             timestamp: post.timestamp,
             user: post.user,
-            score: post.score
+            score: post.score,
+            topic: post.topic
         }
         const snapshot = await db.collection(`users/${post.user.id}/subscribers`).get()
         const batch = db.batch()
-        let ref = db.doc(`users/${post.user.id}/feed/${postId}`)
-        batch.set(ref, feedEntry, merge)
         snapshot.forEach(doc => {
-            ref = db.doc(`users/${doc.id}/feed/${postId}`)
+            const ref = db.doc(`users/${doc.id}/feed/${postId}`)
             batch.set(ref, feedEntry, merge)
         })
         await batch.commit()
