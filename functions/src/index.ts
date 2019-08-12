@@ -49,14 +49,14 @@ export const onBookmarkDeleted = functions.firestore
         return utils.calculatePostScore(postId)
     })
 
-export const onReadingWritten = functions.firestore
+export const onReadingCreated = functions.firestore
     .document('users/{userId}/readings/{postId}')
     .onWrite((_, context) => {
         const postId = context.params.postId
         return utils.calculatePostScore(postId)
     })
 
-export const onShareWritten = functions.firestore
+export const onShareCreated = functions.firestore
     .document('users/{userId}/shares/{postId}')
     .onWrite((_, context) => {
         const postId = context.params.postId
