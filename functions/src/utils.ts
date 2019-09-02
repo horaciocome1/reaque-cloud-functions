@@ -10,7 +10,8 @@
  *    Unless required by applicable law or agreed to in writing, software
  *    distributed under the License is distributed on an "AS IS" BASIS,
  *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and limitations under the License.
+ *    See the License for the specific language governing permissions and limitations
+ *    under the License.
  */
 
 import * as admin from 'firebase-admin'
@@ -22,18 +23,27 @@ const db = admin.firestore()
 
 const merge = { merge: true }
 
-export async function notifySubscribedUser(userId: string, subscriberId: string, subscriber: FirebaseFirestore.DocumentData) {
+export async function notifySubscribedUser(
+    userId: string,
+    subscriberId: string,
+    subscriber: FirebaseFirestore.DocumentData
+) {
     try {
-        const snapshot = await db.doc(`users/${userId}`).get()
+        const snapshot = await db.doc(`users/${userId}`)
+            .get()
         const user = snapshot.data()
         if (user) {
             if (user.registrationToken === undefined) {
-                console.error(`failed to notify subscribed user | userId: ${userId} | user does not have registration token`)
+                console.error(`
+                    failed to notify subscribed user 
+                    | userId: ${userId} 
+                    | user does not have registration token
+                `)
                 return
             }
             const payload = {
                 notification: {
-                    title: subscriber.name,
+                    title: 'New Reaque notification',
                     body: `${subscriber.name} subscribed to you!`,
                     clickAction: 'MainActivity'
                 },
@@ -41,12 +51,19 @@ export async function notifySubscribedUser(userId: string, subscriberId: string,
                     USER_ID: subscriberId
                 }
             }
-            const messaging = admin.messaging()
-            await messaging.sendToDevice(user.registrationToken, payload)
+            await admin.messaging()
+                .sendToDevice(user.registrationToken, payload)
         }
-        console.log(`succeed to notify subscribed user | userId: ${userId}`)     
+        console.log(
+            `succeed to notify subscribed user 
+            | userId: ${userId}`
+        )     
     } catch (err) {
-        console.error(`failed to notify subscribed user | userId: ${userId} | ${err}`)       
+        console.error(
+            `failed to notify subscribed user 
+            | userId: ${userId} 
+            | ${err}`
+        )       
     }
 }
 
@@ -55,15 +72,27 @@ export async function calculateAverageRating(postId: string) {
     try {
         await db.runTransaction(async transaction => {
             const ref = db.doc(`posts/${postId}`)
-            const snapshot = await transaction.get(ref.collection('ratings'))
-            const ratings = snapshot.docs.map(doc => doc.data().value)
-            const average = ratings.length ? ratings.reduce((total, val) => total + val) / ratings.length : 0
+            const snapshot = await transaction.get(
+                ref.collection('ratings')
+            )
+            const ratings = snapshot.docs
+                .map(doc => doc.data().value)
+            const average = ratings.length
+                ? ratings.reduce((total, val) => total + val) / ratings.length : 0
             const rating = round(average, 1) // 1 decimal, uma casa decimal
-            return transaction.set(ref, { rating: rating }, merge)
+            const data = { rating: rating }
+            return transaction.set(ref, data, merge)
         })
-        console.log(`succeed to calculate rating | postId: ${postId}`)
+        console.log(
+            `succeed to calculate rating 
+            | postId: ${postId}`
+        )
     } catch (err) {
-        console.error(`failed to calculate rating | postId: ${postId} | ${err}`)
+        console.error(
+            `failed to calculate rating 
+            | postId: ${postId} 
+            | ${err}`
+        )
     }
 
     function round(value: number, precision: number) {
@@ -73,7 +102,10 @@ export async function calculateAverageRating(postId: string) {
 
 }
 
-export async function createFeedEntryForEachSubscriber(postId: string, post: FirebaseFirestore.DocumentData) {
+export async function createFeedEntryForEachSubscriber(
+    postId: string,
+    post: FirebaseFirestore.DocumentData
+) {
     try {
         const feedEntry = {
             id: postId,
@@ -84,16 +116,25 @@ export async function createFeedEntryForEachSubscriber(postId: string, post: Fir
             score: post.score,
             topic: post.topic
         }
-        const snapshot = await db.collection(`users/${post.user.id}/subscribers`).get()
+        const snapshot = await db.collection(`users/${post.user.id}/subscribers`)
+            .get()
         const batch = db.batch()
         snapshot.forEach(doc => {
             const ref = db.doc(`users/${doc.id}/feed/${postId}`)
             batch.set(ref, feedEntry, merge)
         })
         await batch.commit()
-        console.log(`succeed to create feed entries | postId: ${postId} | ${snapshot.size}`)
+        console.log(
+            `succeed to create feed entries 
+            | postId: ${postId} 
+            | ${snapshot.size}`
+        )
     } catch (err) {
-        console.error(`failed to create feed entries | postId: ${postId} | ${err}`)
+        console.error(
+            `failed to create feed entries 
+            | postId: ${postId} 
+            | ${err}`
+        )
     }
 }
 
@@ -106,12 +147,22 @@ export async function calculateTopicAverageScore(topicId: string) {
                 ref.collection('posts').where('score', '>=', 0)
             )
             const scores = snapshot.docs.map(doc => doc.data().score)
-            average = scores.length ? scores.reduce((total, val) => total + val) / scores.length : 0
-            return transaction.set(ref, { score: average }, merge)
+            average = scores.length
+                ? scores.reduce((total, val) => total + val) / scores.length : 0
+            const data = { score: average }
+            return transaction.set(ref, data, merge)
         })
-        console.log(`succeed to calculate topic average score | topicId: ${topicId} | ${average}`)
+        console.log(
+            `succeed to calculate topic average score 
+            | topicId: ${topicId} 
+            | ${average}`
+        )
     } catch (err) {
-        console.error(`failed to calculate topic average score | topicId: ${topicId} | ${err}`)
+        console.error(
+            `failed to calculate topic average score 
+            | topicId: ${topicId} 
+            | ${err}`
+        )
     }
 }
 
@@ -121,15 +172,27 @@ export async function calculateUserAverageScore(userId: string) {
         await db.runTransaction(async transaction => {
             const ref = db.doc(`users/${userId}`)
             const snapshot = await transaction.get(
-                ref.collection('posts').where('score', '>=', 0)
+                ref.collection('posts')
+                    .where('score', '>=', 0)
             )
-            const scores = snapshot.docs.map(doc => doc.data().score)
-            average = scores.length ? scores.reduce((total, val) => total + val) / scores.length : 0
-            return transaction.set(ref, { score: average }, merge)
+            const scores = snapshot.docs
+                .map(doc => doc.data().score)
+            average = scores.length
+                ? scores.reduce((total, val) => total + val) / scores.length : 0
+                const data = { score: average }
+            return transaction.set(ref, data, merge)
         })
-        console.log(`succeed to calculate user average score | userId: ${userId} | ${average}`)
+        console.log(
+            `succeed to calculate user average score 
+            | userId: ${userId} 
+            | ${average}`
+        )
     } catch (err) {
-        console.error(`failed to calculate user average score | userId: ${userId} | ${err}`)
+        console.error(
+            `failed to calculate user average score 
+            | userId: ${userId} 
+            | ${err}`
+        )
     }
 }
 
@@ -146,18 +209,29 @@ export async function initializeUser(user: admin.auth.UserRecord) {
             subscribers: 0,
             posts: 0,
             score: 0,
-            bookmarks: 0
+            bookmarks: 0,
         }
-        await db.doc(`users/${user.uid}`).set(data, merge)
-        console.log(`succeed to initialize user | userId: ${user.uid}`)
+        await db.doc(`users/${user.uid}`)
+            .set(data, merge)
+        console.log(
+            `succeed to initialize user 
+            | userId: ${user.uid}`
+        )
         await createFeedToNewUser()
     } catch (err) {
-        console.error(`failed to initialize user | userId: ${user.uid} | ${err}`)
+        console.error(
+            `failed to initialize user 
+            | userId: ${user.uid} 
+            | ${err}`
+        )
     }
 
     async function createFeedToNewUser() {
         try {
-            const snapshot = await db.collection('posts').orderBy('score', 'desc').limit(20).get()
+            const snapshot = await db.collection('posts')
+                .orderBy('score', 'desc')
+                .limit(20)
+                .get()
             const batch = db.batch()
             snapshot.forEach(doc => {
                 const post = doc.data()
@@ -175,9 +249,16 @@ export async function initializeUser(user: admin.auth.UserRecord) {
                 }
             })
             await batch.commit()
-            console.log(`succeed to create feed to new user | userId: ${user.uid}`)
+            console.log(
+                `succeed to create feed to new user 
+                | userId: ${user.uid}`
+            )
         } catch (err) {
-            console.error(`failed to create feed to new user | userId: ${user.uid} | ${err}`)
+            console.error(
+                `failed to create feed to new user 
+                | userId: ${user.uid} 
+                | ${err}`
+            )
         }
     }
 
@@ -199,12 +280,21 @@ export async function calculatePostScore(postId: string) {
                     + getFactor(0.30, post.shares)
                     + getFactor(0.35, post.rating)
             }
-            return transaction.set(ref, { score: score }, merge)
+            const data = { score: score }
+            return transaction.set(ref, data, merge)
         })
-        console.log(`succeed to calculate post's score | postId: ${postId} | ${score}`)
+        console.log(
+            `succeed to calculate post's score 
+            | postId: ${postId} 
+            | ${score}`
+        )
         await propagatePostScore(score)
     } catch (err) {
-        console.error(`failed to calculate post's score | postId: ${postId} | ${err}`)
+        console.error(
+            `failed to calculate post's score 
+            | postId: ${postId} 
+            | ${err}`
+        )
     }
     
     function getFactor(percent: number, x: number): number {
@@ -223,13 +313,26 @@ export async function calculatePostScore(postId: string) {
 
         async function update(collectionName: string) {
             try {
-                const snapshot = await db.collectionGroup(collectionName).where('id', '==', postId).get()
+                const snapshot = await db.collectionGroup(collectionName)
+                    .where('id', '==', postId)
+                    .get()
                 const batch = db.batch()
-                snapshot.forEach(doc => batch.set(doc.ref, { score: score }, merge))
+                const data = { score: score }
+                snapshot.forEach(
+                    doc => batch.set(doc.ref, data, merge)
+                )
                 await batch.commit()
-                console.log(`succeed to propagate post's updates to collection | collectionName: ${collectionName} | ${snapshot.size}`)
+                console.log(
+                    `succeed to propagate post's updates to collection 
+                    | collectionName: ${collectionName} 
+                    | ${snapshot.size}`
+                )
             } catch (err) {
-                console.error(`failed to propagate post's updates to collection | collectionName: ${collectionName} | ${err}`)        
+                console.error(
+                    `failed to propagate post's updates to collection 
+                    | collectionName: ${collectionName} 
+                    | ${err}`
+                )        
             }
         }
 
@@ -240,7 +343,8 @@ export async function calculatePostScore(postId: string) {
 export async function propagateUserUpdates(userId: string) {
         
     try {
-        const snapshot = await db.doc(`users/${userId}`).get()
+        const snapshot = await db.doc(`users/${userId}`)
+            .get()
         const user = snapshot.data()
         if (user) {
             const data = {
@@ -254,20 +358,39 @@ export async function propagateUserUpdates(userId: string) {
                 update(data, 'users')
             ])
         }   
-        console.log(`succeed to propagate user's updates | userId: ${userId}`)
+        console.log(
+            `succeed to propagate user's updates 
+            | userId: ${userId}`
+        )
     } catch (err) {
-        console.error(`failed to propagate user's updates | userId: ${userId} | ${err}`)
+        console.error(
+            `failed to propagate user's updates 
+            | userId: ${userId} 
+            | ${err}`
+        )
     }
 
     async function update(data: any, collectionName: string) {
         try {
-            const snapshot = await db.collectionGroup(collectionName).where('id', '==', userId).get()
+            const snapshot = await db.collectionGroup(collectionName)
+                .where('id', '==', userId)
+                .get()
             const batch = db.batch()
-            snapshot.forEach(doc => batch.set(doc.ref, data, merge))
+            snapshot.forEach(
+                doc => batch.set(doc.ref, data, merge)
+            )
             await batch.commit()
-            console.log(`succeed to propagate user's updates to collection | collectionName: ${collectionName} | ${snapshot.size}`)
+            console.log(
+                `succeed to propagate user's updates to collection 
+                | collectionName: ${collectionName} 
+                | ${snapshot.size}`
+            )
         } catch (err) {
-            console.error(`failed to propagate user's updates to collection | collectionName: ${collectionName} | ${err}`)        
+            console.error(
+                `failed to propagate user's updates to collection 
+                | collectionName: ${collectionName} 
+                | ${err}`
+            )        
         }
     }
 
